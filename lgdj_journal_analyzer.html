@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LGDJ — Analyse Journal de Caisse</title>
+  <style>
+    :root{
+      --bg:#0f1115;--card:#171b22;--card2:#11151b;--line:#2a3240;--text:#edf2f7;--muted:#9fb0c3;
+      --accent:#6ea8fe;--accent2:#9a7cff;--good:#28c76f;--warn:#ffb020;--bad:#ff5c5c;
+      --tcg:#6ea8fe;--board:#28c76f;--acc:#ffb020;--puzzle:#9a7cff;--other:#7a8699;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#0c0f14,#12161d);color:var(--text)}
+    .wrap{max-width:1400px;margin:0 auto;padding:18px}
+    .title{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}
+    h1{margin:0;font-size:24px}
+    .sub{color:var(--muted);font-size:13px}
+    .grid{display:grid;gap:14px}
+    .top{grid-template-columns:1.2fr .8fr}
+    .middle{grid-template-columns:1.05fr .95fr}
+    @media (max-width:1100px){.top,.middle{grid-template-columns:1fr}}
+    .card{background:rgba(23,27,34,.92);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 14px 40px rgba(0,0,0,.18)}
+    h2{margin:0 0 12px;font-size:16px}
+    h3{margin:0 0 10px;font-size:14px}
+    textarea{width:100%;min-height:240px;background:#0f1319;border:1px solid var(--line);border-radius:14px;color:var(--text);padding:14px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
+    button,input,select{background:#0f1319;border:1px solid var(--line);color:var(--text);border-radius:12px;padding:10px 12px;font-size:13px}
+    button{cursor:pointer}
+    button.primary{background:#1d3a63;border-color:#335a92}
+    button.ghost{background:transparent}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .row > *{min-width:0}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    @media (max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:560px){.stats{grid-template-columns:1fr}}
+    .stat{background:var(--card2);border:1px solid var(--line);border-radius:16px;padding:14px}
+    .stat .label{color:var(--muted);font-size:12px;margin-bottom:6px}
+    .stat .value{font-size:24px;font-weight:700}
+    .stat .meta{font-size:12px;color:var(--muted);margin-top:4px}
+    .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media (max-width:900px){.kpis{grid-template-columns:1fr}}
+    .kpi{background:var(--card2);border:1px solid var(--line);border-radius:16px;padding:14px}
+    .split{display:grid;grid-template-columns:380px 1fr;gap:18px;align-items:start}
+    @media (max-width:900px){.split{grid-template-columns:1fr}}
+    .chartBox{display:flex;justify-content:center;align-items:center;padding:10px}
+    .legend{display:grid;gap:10px}
+    .legend button{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;width:100%;text-align:left;background:var(--card2)}
+    .dot{width:12px;height:12px;border-radius:999px;display:inline-block}
+    .details{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+    .items{display:grid;gap:8px}
+    .item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 12px;background:var(--card2);border:1px solid var(--line);border-radius:14px}
+    @media (max-width:700px){.item{grid-template-columns:1fr auto}}
+    .item small{display:block;color:var(--muted);margin-top:4px}
+    .paybadges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .badge{font-size:11px;padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:#0f1319;color:#dbe6f2}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 8px;border-top:1px solid var(--line);font-size:13px;vertical-align:top}
+    th{text-align:left;color:#d7e1ec;font-size:12px}
+    .right{text-align:right;white-space:nowrap}
+    .muted{color:var(--muted)}
+    .hint{font-size:12px;color:var(--muted);line-height:1.45}
+    .footerStats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media (max-width:900px){.footerStats{grid-template-columns:1fr}}
+    details summary{cursor:pointer;list-style:none}
+    details summary::-webkit-details-marker{display:none}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;background:#0f1319;border:1px solid var(--line);font-size:12px;color:#dce6f1}
+    .modal{position:fixed;inset:0;background:rgba(5,8,12,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000}
+    .modal.show{display:flex}
+    .modalPanel{width:min(1200px,96vw);max-height:90vh;overflow:auto;background:#131821;border:1px solid var(--line);border-radius:20px;padding:16px}
+    .stickyActions{position:sticky;top:0;background:#131821;padding-bottom:10px;z-index:5}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .divider{height:1px;background:var(--line);margin:14px 0}
+    .small{font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <div>
+        <h1>Analyse Journal de Caisse</h1>
+        <div class="sub">Copie-colle le journal brut, puis l’app reconstruit les tickets, les paiements et les catégories.</div>
+      </div>
+      <div class="pill"><span>Mode</span><strong>100% local</strong></div>
+    </div>
+
+    <section class="grid top">
+      <div class="card">
+        <h2>1) Journal de caisse</h2>
+        <textarea id="input" placeholder="Colle ici le journal de caisse brut…"></textarea>
+        <div class="row" style="margin-top:12px">
+          <button class="primary" id="analyzeBtn">Analyser</button>
+          <button id="sampleBtn">Charger un exemple</button>
+          <button class="ghost" id="clearBtn">Vider</button>
+          <button class="ghost" id="exportTicketsBtn">Exporter tickets CSV</button>
+          <button class="ghost" id="exportLinesBtn">Exporter lignes CSV</button>
+          <span id="status" class="small muted"></span>
+        </div>
+        <div class="divider"></div>
+        <div class="hint">
+          L’algorithme repère les tickets, reconstruit les lignes produits, extrait les modes de paiement (CB / espèces / mixte), puis classe les ventes en <strong>TCG</strong>, <strong>Accessoires</strong>, <strong>Casse-tête &amp; Puzzle</strong> et <strong>Jeux de société</strong>. Les paniers moyens TCG / hors TCG utilisent une ventilation proportionnelle pour les tickets mixtes.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>2) Contrôle encaissements CB</h2>
+        <div class="stats">
+          <div class="stat">
+            <div class="label">CB extrait</div>
+            <div class="value" id="cbTotal">0,00 €</div>
+            <div class="meta" id="cbCount">0 transaction</div>
+          </div>
+          <div class="stat">
+            <div class="label">Valeur 1</div>
+            <input id="manual1" type="text" inputmode="decimal" placeholder="0,00" />
+          </div>
+          <div class="stat">
+            <div class="label">Valeur 2</div>
+            <input id="manual2" type="text" inputmode="decimal" placeholder="0,00" />
+          </div>
+          <div class="stat">
+            <div class="label">Décalage</div>
+            <div class="value" id="cbGap">—</div>
+            <div class="meta" id="cbGapMeta">Renseigne les deux valeurs</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="kpis">
+          <div class="kpi">
+            <div class="label">Espèces extraites</div>
+            <div class="value" id="cashTotal">0,00 €</div>
+            <div class="meta" id="cashCount">0 transaction</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Total tickets</div>
+            <div class="value" id="ticketCount">0</div>
+            <div class="meta" id="periodText">Aucune période détectée</div>
+          </div>
+          <div class="kpi">
+            <div class="label">CA total</div>
+            <div class="value" id="grandTotal">0,00 €</div>
+            <div class="meta" id="mixedCount">0 ticket mixte</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <div>
+          <h2>3) Récap journée / période</h2>
+          <div class="sub">Camembert à gauche, catégories cliquables à droite.</div>
+        </div>
+        <div class="row">
+          <div class="pill"><span>TCG</span><strong id="tcgBig">0,00 €</strong></div>
+          <div class="pill"><span>Jeux hors TCG</span><strong id="boardBig">0,00 €</strong></div>
+          <button id="openTicketsBtn">Voir la liste des tickets</button>
+        </div>
+      </div>
+      <div class="split" style="margin-top:16px">
+        <div class="chartBox">
+          <svg id="pieSvg" width="320" height="320" viewBox="0 0 320 320" aria-label="Camembert CA"></svg>
+        </div>
+        <div>
+          <div class="legend" id="categoryButtons"></div>
+          <div class="details" id="categoryDetail">
+            <div class="hint">Clique sur une catégorie pour afficher son détail ici.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:14px">
+      <h2>4) Indicateurs de la journée</h2>
+      <div class="footerStats">
+        <div class="stat">
+          <div class="label">Panier moyen total</div>
+          <div class="value" id="avgTotal">0,00 €</div>
+          <div class="meta">CA total / nombre de tickets</div>
+        </div>
+        <div class="stat">
+          <div class="label">Panier moyen TCG</div>
+          <div class="value" id="avgTCG">0,00 €</div>
+          <div class="meta" id="avgTCGMeta">Ventilation des tickets mixtes incluse</div>
+        </div>
+        <div class="stat">
+          <div class="label">Panier moyen Jeux hors TCG</div>
+          <div class="value" id="avgBoard">0,00 €</div>
+          <div class="meta" id="avgBoardMeta">Jeux + accessoires + casse-tête / puzzle</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal" id="ticketsModal">
+    <div class="modalPanel">
+      <div class="stickyActions">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <div>
+            <h2 style="margin-bottom:4px">Liste des tickets</h2>
+            <div class="sub">Produits, prix, total, paiement, heure, date, ticket et encaisseur.</div>
+          </div>
+          <div class="row">
+            <input id="ticketFilter" type="text" placeholder="Filtrer (ticket, employé, produit...)" />
+            <button class="ghost" id="closeTicketsBtn">Fermer</button>
+          </div>
+        </div>
+      </div>
+      <div style="overflow:auto">
+        <table id="ticketsTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Heure</th>
+              <th>Ticket</th>
+              <th>Employé</th>
+              <th>Client</th>
+              <th>Produits</th>
+              <th class="right">Total</th>
+              <th>Paiement</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'lgdj-journal-analyzer-v1';
+  const state = { raw:'', tickets:[], lines:[], selectedCategory:'tcg', summary:null };
+
+  const CATEGORY_INFO = {
+    tcg: { label:'TCG', color:'var(--tcg)' },
+    accessories: { label:'Accessoires', color:'var(--acc)' },
+    puzzle: { label:'Casse-tête & Puzzle', color:'var(--puzzle)' },
+    board: { label:'Jeux de société', color:'var(--board)' }
+  };
+
+  const TCG_LICENSES = [
+    { key:'pokemon', label:'Pokémon', patterns:['pokemon','pokémon','ev10','ev10.5','me01','me02','me2.5','tripack','duopack','etb','elite trainer box','coffret ultra premium','upc','pokebox','pokebox','bundle de 6 boosters','booster mega-evolution'] },
+    { key:'lorcana', label:'Lorcana', patterns:['lorcana','chapitre','illumineers trove','starter deck lorcana'] },
+    { key:'onepiece', label:'One Piece', patterns:['one piece','op-',' op','eb03','double pack','display 24 boosters'] },
+    { key:'magic', label:'Magic', patterns:['magic','mtg','tarkir','fondations','mornebrune','play booster','booster de jeu'] },
+    { key:'altered', label:'Altered', patterns:['altered'] },
+    { key:'fleshandblood', label:'Flesh and Blood', patterns:['flesh and blood','flesh&blood','fab ','fab:'] },
+    { key:'starwarsunlimited', label:'Star Wars Unlimited', patterns:['star wars unlimited'] },
+    { key:'yugioh', label:'Yu-Gi-Oh!', patterns:['yu-gi-oh','yugioh'] }
+  ];
+
+  const ACCESSORY_PATTERNS = [
+    'dragon shield','sleeve','sleeves','perfect fit','pochette','protège-carte','protege-carte','protège carte','protege carte',
+    'deck box','deckbox','binder','portfolio','classeur','toploader','playmat','tapis','set de 7 des','set de 7 dés','dés','des',
+    'piste de des','piste de dés','pistes de des','pistes de dés','chessex','token','jeton'
+  ];
+
+  const PUZZLE_PATTERNS = [
+    'puzzle','perplexus','smartgames','smart games','hanayama','casse-tete','casse-tête','100 pieces','100 pièces','500 pieces','500 pièces','1000 pieces','1000 pièces'
+  ];
+
+  const TCG_PRODUCT_PATTERNS = [
+    'booster','display','deck','starter','bundle','etb','elite trainer box','tripack','duopack','collector','coffret','mini tin','tin','blister','boite premium','boite ultra premium','pokebox'
+  ];
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return (s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function normalize(s){
+    return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').trim();
+  }
+  function fmtEUR(n){
+    const v = Number(n||0);
+    return v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+  }
+  function parseLooseNumber(input){
+    if(input == null) return null;
+    let s = String(input).trim();
+    if(!s) return null;
+    s = s.replace(/\s/g,'').replace(',', '.');
+    const v = Number(s);
+    return Number.isFinite(v) ? v : null;
+  }
+  function parseFrenchAmount(text){
+    if(!text) return null;
+    let s = String(text).replace(/\u00a0/g,' ').trim();
+    const matches = s.match(/-?\d{1,3}(?:[ .]\d{3})*(?:,\d{1,2})|-?\d+(?:,\d{1,2})|-?\d+(?:\.\d{1,2})?/g);
+    if(!matches || !matches.length) return null;
+    let token = matches[matches.length - 1].replace(/ /g,'');
+    if(token.includes(',') && token.includes('.')){
+      if(token.lastIndexOf(',') > token.lastIndexOf('.')){
+        token = token.replace(/\./g,'').replace(',', '.');
+      } else {
+        token = token.replace(/,/g,'');
+      }
+    } else {
+      token = token.replace(/\./g, m => m).replace(',', '.');
+      const dots = (token.match(/\./g)||[]).length;
+      if(dots > 1){
+        const parts = token.split('.');
+        const dec = parts.pop();
+        token = parts.join('') + '.' + dec;
+      }
+    }
+    const n = Number(token);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function extractPeriod(text){
+    const m = text.match(/du\s+(\d{2}\/\d{2}\/\d{4})\s+\d{1,2}:\d{2}:\d{2}\s+au\s+(\d{2}\/\d{2}\/\d{4})\s+\d{1,2}:\d{2}:\d{2}/i);
+    if(!m) return null;
+    return { from:m[1], to:m[2] };
+  }
+
+  function extractPaymentSummary(text){
+    const summary = { cardTotal:0, cashTotal:0, cardCount:0, cashCount:0, source:'calculated' };
+    const cardLine = text.match(/Carte\s+Bancaire\s+(\d+)\s+([\d ]+,\d{2})\s+\d+\s+[\d ]+,\d{2}\s+([\d ]+,\d{2})/i);
+    const cashLine = text.match(/Esp[eè]ces\s+(\d+)\s+([\d ]+,\d{2})\s+\d+\s+[\d ]+,\d{2}\s+([\d ]+,\d{2})/i);
+    if(cardLine){
+      summary.cardCount = Number(cardLine[1]) || 0;
+      summary.cardTotal = parseFrenchAmount(cardLine[3] || cardLine[2]) || 0;
+      summary.source = 'header';
+    }
+    if(cashLine){
+      summary.cashCount = Number(cashLine[1]) || 0;
+      summary.cashTotal = parseFrenchAmount(cashLine[3] || cashLine[2]) || 0;
+      summary.source = 'header';
+    }
+    return summary;
+  }
+
+  function isTicketStart(line){
+    const m = line.match(/^(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s+(.+?)\s+(TIC-\d+-\d+)\s*(.*)$/);
+    if(!m) return null;
+    if(!/\bVente\b/i.test(m[5])) return null;
+    const customer = m[5].replace(/\bVente\b/i,'').trim();
+    return { date:m[1], time:m[2], employee:m[3].trim(), ticket:m[4], customer };
+  }
+
+  function parseTickets(raw){
+    const lines = raw.replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(Boolean);
+    const tickets = [];
+    let i = 0;
+    while(i < lines.length){
+      const start = isTicketStart(lines[i]);
+      if(!start){ i++; continue; }
+      const ticket = {
+        date:start.date, time:start.time, employee:start.employee, ticket:start.ticket, customer:start.customer,
+        items:[], payments:[], total:0, cashGiven:0, change:0, rawBlock:[lines[i]], ticketMix:false
+      };
+      i++;
+      let pendingProduct = null;
+      let pendingPayment = null;
+      function flushProduct(){
+        if(!pendingProduct) return;
+        const compact = pendingProduct.join(' ').replace(/\s+/g,' ').trim();
+        const amount = parseFrenchAmount(compact);
+        let text = compact;
+        if(amount != null){
+          text = compact.replace(new RegExp(String(compact.match(/-?\d{1,3}(?:[ .]\d{3})*(?:,\d{1,2})|-?\d+(?:,\d{1,2})|-?\d+(?:\.\d{1,2})?/g).pop()).replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '$'), '').trim();
+        }
+        text = text.replace(/^([A-Z0-9][A-Z0-9\-]{3,})\s+/, '').trim();
+        let qty = 1;
+        const q = text.match(/x\s*(\d+)$/i);
+        if(q){ qty = Number(q[1]) || 1; text = text.replace(/x\s*\d+$/i,'').trim(); }
+        const item = buildItem(text, amount || 0, qty);
+        ticket.items.push(item);
+        pendingProduct = null;
+      }
+      function flushPayment(){
+        if(!pendingPayment) return;
+        const compact = pendingPayment.join(' ').replace(/\s+/g,' ').trim();
+        const amount = parseFrenchAmount(compact) || 0;
+        let method = 'Autre';
+        if(/carte bancaire/i.test(compact)) method = 'Carte Bancaire';
+        else if(/esp[eè]ces/i.test(compact)) method = 'Espèces';
+        else if(/bon cadeau/i.test(compact)) method = 'Bon cadeau';
+        ticket.payments.push({ method, amount });
+        pendingPayment = null;
+      }
+
+      while(i < lines.length){
+        const line = lines[i];
+        const nextStart = isTicketStart(line);
+        if(nextStart){
+          flushProduct();
+          flushPayment();
+          break;
+        }
+        ticket.rawBlock.push(line);
+        if(/^Total Document\s*:/i.test(line)){
+          flushProduct();
+          flushPayment();
+          ticket.total = parseFrenchAmount(line) || 0;
+          i++;
+          break;
+        }
+        if(/Rendu\s*:/i.test(line)){
+          flushProduct();
+          flushPayment();
+          ticket.change = parseFrenchAmount(line) || 0;
+          i++;
+          continue;
+        }
+        if(/FR Taux|no tax|Taux r[eé]duit/i.test(line)){
+          flushProduct();
+          flushPayment();
+          i++;
+          continue;
+        }
+        if(/Mode de paiement\s*:/i.test(line)){
+          flushProduct();
+          flushPayment();
+          const after = line.split(/Mode de paiement\s*:/i)[1].trim();
+          pendingPayment = after ? [after] : [];
+          i++;
+          while(i < lines.length){
+            const l2 = lines[i];
+            if(isTicketStart(l2) || /^Total Document\s*:/i.test(l2) || /Rendu\s*:/i.test(l2) || /FR Taux|no tax|Taux r[eé]duit/i.test(l2) || /Mode de paiement\s*:/i.test(l2)) break;
+            pendingPayment.push(l2);
+            i++;
+          }
+          flushPayment();
+          continue;
+        }
+
+        const prefixRegex = new RegExp('^\\d{2}\\/\\d{2}\\/\\d{4}\\s+\\d{1,2}:\\d{2}:\\d{2}\\s+.+?\\s+' + ticket.ticket.replace(/[-/\\^$*+?.()|[\]{}]/g,'\\$&') + '\\s*(.*)$');
+        const pm = line.match(prefixRegex);
+        if(pm){
+          flushProduct();
+          const stripped = (pm[1] || '').trim();
+          if(stripped){ pendingProduct = [stripped]; }
+          i++;
+          continue;
+        }
+
+        if(pendingProduct){
+          pendingProduct.push(line);
+          i++;
+          continue;
+        }
+        i++;
+      }
+
+      if(!ticket.total){
+        ticket.total = round2(ticket.items.reduce((a,b)=>a+b.amount,0));
+      }
+      if(ticket.payments.length > 1 || (ticket.payments[0] && ticket.payments[0].method === 'Espèces' && ticket.change > 0)) ticket.ticketMix = ticket.payments.length > 1;
+      allocatePaymentsToItems(ticket);
+      tickets.push(ticket);
+    }
+    return tickets;
+  }
+
+  function buildItem(name, amount, qty){
+    const n = normalize(name);
+    const tcgLicense = detectTCGLicense(n);
+    let category = 'board';
+    let sub = 'Jeux de société';
+    if(tcgLicense || hasAny(n, TCG_PRODUCT_PATTERNS)){
+      category = 'tcg';
+      sub = tcgLicense ? tcgLicense.label : 'Autre TCG';
+    } else if(hasAny(n, ACCESSORY_PATTERNS)){
+      category = 'accessories';
+      sub = 'Accessoires';
+    } else if(hasAny(n, PUZZLE_PATTERNS)){
+      category = 'puzzle';
+      sub = 'Casse-tête & Puzzle';
+    }
+    return { name:name || 'Article non identifié', amount:round2(amount||0), qty:qty||1, category, subcategory:sub, paymentBreakdown:[] };
+  }
+
+  function hasAny(n, patterns){ return patterns.some(p => n.includes(normalize(p))); }
+  function detectTCGLicense(n){
+    for(const lic of TCG_LICENSES){
+      if(lic.patterns.some(p => n.includes(normalize(p)))) return lic;
+    }
+    return null;
+  }
+  function round2(v){ return Math.round((Number(v)||0) * 100) / 100; }
+
+  function allocatePaymentsToItems(ticket){
+    const total = ticket.total || ticket.items.reduce((a,b)=>a+b.amount,0);
+    let payments = ticket.payments.map(p=>({...p}));
+    if(!payments.length && total){ payments = [{ method:'Inconnu', amount:total }]; }
+    if(payments.length === 1 && payments[0].method === 'Espèces' && ticket.change > 0){
+      payments[0].cashGiven = payments[0].amount;
+      payments[0].amount = round2(payments[0].amount - ticket.change);
+    }
+    const effective = payments.map(p => ({...p, amount: round2(p.amount)}));
+    let remaining = effective.map(p=>p.amount);
+    const totalItems = ticket.items.reduce((a,b)=>a+b.amount,0) || total || 1;
+    ticket.items.forEach((item, idx) => {
+      let value = item.amount;
+      const itemParts = [];
+      if(idx === ticket.items.length - 1){
+        effective.forEach((p, j) => { if(remaining[j] > 0.0001) itemParts.push({ method:p.method, amount:round2(remaining[j]) }); });
+      } else if(effective.length === 1){
+        itemParts.push({ method:effective[0].method, amount:round2(value) });
+        remaining[0] = round2(remaining[0] - value);
+      } else {
+        effective.forEach((p,j) => {
+          const share = round2((value / totalItems) * p.amount);
+          const used = Math.min(share, remaining[j]);
+          if(used > 0) itemParts.push({ method:p.method, amount:round2(used) });
+          remaining[j] = round2(remaining[j] - used);
+        });
+      }
+      item.paymentBreakdown = itemParts.filter(p=>p.amount > 0.0001);
+    });
+    ticket.payments = effective;
+  }
+
+  function buildDerived(tickets){
+    const lines = [];
+    const totals = { tcg:0, accessories:0, puzzle:0, board:0, card:0, cash:0, total:0, cardCount:0, cashCount:0, mixedTickets:0 };
+    const subTotals = {};
+    let tcgTicketEq = 0, boardTicketEq = 0;
+
+    tickets.forEach(ticket => {
+      const ticketTotal = ticket.total || ticket.items.reduce((a,b)=>a+b.amount,0);
+      totals.total += ticketTotal;
+      const ticketCat = { tcg:0, board:0, accessories:0, puzzle:0 };
+
+      ticket.items.forEach(item => {
+        lines.push({ ticket:ticket.ticket, date:ticket.date, time:ticket.time, employee:ticket.employee, customer:ticket.customer, ...item });
+        totals[item.category] += item.amount;
+        ticketCat[item.category] += item.amount;
+        subTotals[item.subcategory] = round2((subTotals[item.subcategory] || 0) + item.amount);
+      });
+
+      ticket.payments.forEach(p => {
+        if(p.method === 'Carte Bancaire'){ totals.card += p.amount; totals.cardCount += 1; }
+        else if(p.method === 'Espèces'){ totals.cash += p.amount; totals.cashCount += 1; }
+      });
+      if(ticket.payments.length > 1) totals.mixedTickets += 1;
+
+      if(ticketTotal > 0){
+        tcgTicketEq += (ticketCat.tcg / ticketTotal);
+        boardTicketEq += ((ticketCat.board + ticketCat.accessories + ticketCat.puzzle) / ticketTotal);
+      }
+    });
+
+    return {
+      lines,
+      totals: mapRound(totals),
+      subTotals,
+      avgTotal: tickets.length ? round2(totals.total / tickets.length) : 0,
+      avgTCG: tcgTicketEq ? round2(totals.tcg / tcgTicketEq) : 0,
+      avgBoard: boardTicketEq ? round2((totals.board + totals.accessories + totals.puzzle) / boardTicketEq) : 0,
+      tcgTicketEq: round2(tcgTicketEq),
+      boardTicketEq: round2(boardTicketEq)
+    };
+  }
+
+  function mapRound(obj){
+    const out = {};
+    for(const k in obj) out[k] = typeof obj[k] === 'number' ? round2(obj[k]) : obj[k];
+    return out;
+  }
+
+  function render(appData){
+    const { tickets, derived, paymentHeader, period } = appData;
+    state.tickets = tickets;
+    state.lines = derived.lines;
+    state.summary = appData;
+
+    const cbTotal = paymentHeader.cardTotal || derived.totals.card;
+    const cashTotal = paymentHeader.cashTotal || derived.totals.cash;
+    const cbCount = paymentHeader.cardCount || derived.totals.cardCount;
+    const cashCount = paymentHeader.cashCount || derived.totals.cashCount;
+
+    $('cbTotal').textContent = fmtEUR(cbTotal);
+    $('cbCount').textContent = `${cbCount} transaction${cbCount > 1 ? 's' : ''}`;
+    $('cashTotal').textContent = fmtEUR(cashTotal);
+    $('cashCount').textContent = `${cashCount} transaction${cashCount > 1 ? 's' : ''}`;
+    $('ticketCount').textContent = String(tickets.length);
+    $('grandTotal').textContent = fmtEUR(derived.totals.total);
+    $('mixedCount').textContent = `${derived.totals.mixedTickets} ticket${derived.totals.mixedTickets > 1 ? 's' : ''} mixte${derived.totals.mixedTickets > 1 ? 's' : ''}`;
+    $('periodText').textContent = period ? `${period.from} → ${period.to}` : 'Période non détectée';
+    $('tcgBig').textContent = fmtEUR(derived.totals.tcg);
+    $('boardBig').textContent = fmtEUR(derived.totals.board + derived.totals.accessories + derived.totals.puzzle);
+    $('avgTotal').textContent = fmtEUR(derived.avgTotal);
+    $('avgTCG').textContent = fmtEUR(derived.avgTCG);
+    $('avgBoard').textContent = fmtEUR(derived.avgBoard);
+    $('avgTCGMeta').textContent = `Équiv. tickets TCG : ${derived.tcgTicketEq.toLocaleString('fr-FR',{maximumFractionDigits:2})}`;
+    $('avgBoardMeta').textContent = `Équiv. tickets hors TCG : ${derived.boardTicketEq.toLocaleString('fr-FR',{maximumFractionDigits:2})}`;
+
+    renderPie(derived.totals);
+    renderCategoryButtons(derived, tickets);
+    renderCategoryDetail(state.selectedCategory, derived, tickets);
+    renderTicketsTable(tickets, $('ticketFilter').value || '');
+    updateManualGap();
+  }
+
+  function renderPie(totals){
+    const data = [
+      { key:'tcg', label:'TCG', value:totals.tcg, color:getCSS('--tcg') },
+      { key:'accessories', label:'Accessoires', value:totals.accessories, color:getCSS('--acc') },
+      { key:'puzzle', label:'Casse-tête & Puzzle', value:totals.puzzle, color:getCSS('--puzzle') },
+      { key:'board', label:'Jeux de société', value:totals.board, color:getCSS('--board') }
+    ].filter(d => d.value > 0);
+    const total = data.reduce((a,b)=>a+b.value,0) || 1;
+    const cx = 160, cy = 160, r = 110, rInner = 64;
+    let angle = -Math.PI/2;
+    const paths = data.map(d => {
+      const slice = (d.value / total) * Math.PI * 2;
+      const start = angle;
+      const end = angle + slice;
+      angle = end;
+      return donutPath(cx,cy,r,rInner,start,end,d.color);
+    }).join('');
+    const center = `<text x="160" y="150" text-anchor="middle" fill="#dfe8f4" font-size="16" font-weight="700">CA total</text><text x="160" y="176" text-anchor="middle" fill="#fff" font-size="22" font-weight="800">${esc(fmtEUR(total))}</text>`;
+    $('pieSvg').innerHTML = `<rect x="0" y="0" width="320" height="320" fill="transparent"></rect>${paths}${center}`;
+  }
+
+  function donutPath(cx,cy,r,r0,start,end,color){
+    const large = end - start > Math.PI ? 1 : 0;
+    const x1 = cx + Math.cos(start) * r;
+    const y1 = cy + Math.sin(start) * r;
+    const x2 = cx + Math.cos(end) * r;
+    const y2 = cy + Math.sin(end) * r;
+    const x3 = cx + Math.cos(end) * r0;
+    const y3 = cy + Math.sin(end) * r0;
+    const x4 = cx + Math.cos(start) * r0;
+    const y4 = cy + Math.sin(start) * r0;
+    const d = [`M ${x1} ${y1}`, `A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`, `L ${x3} ${y3}`, `A ${r0} ${r0} 0 ${large} 0 ${x4} ${y4}`, 'Z'].join(' ');
+    return `<path d="${d}" fill="${color}" stroke="#10141b" stroke-width="2"></path>`;
+  }
+
+  function renderCategoryButtons(derived, tickets){
+    const defs = [
+      { key:'tcg', total:derived.totals.tcg, extra:`${countItems('tcg')} ligne${countItems('tcg')>1?'s':''}` },
+      { key:'accessories', total:derived.totals.accessories, extra:`${countItems('accessories')} ligne${countItems('accessories')>1?'s':''}` },
+      { key:'puzzle', total:derived.totals.puzzle, extra:`${countItems('puzzle')} ligne${countItems('puzzle')>1?'s':''}` },
+      { key:'board', total:derived.totals.board, extra:`${countItems('board')} ligne${countItems('board')>1?'s':''}` }
+    ];
+    $('categoryButtons').innerHTML = defs.map(d => {
+      const info = CATEGORY_INFO[d.key];
+      return `<button data-cat="${d.key}" class="${state.selectedCategory===d.key?'active':''}"><span class="dot" style="background:${info.color}"></span><span><strong>${info.label}</strong><br><span class="muted small">${esc(d.extra)}</span></span><strong>${esc(fmtEUR(d.total))}</strong></button>`;
+    }).join('');
+    $('categoryButtons').querySelectorAll('button[data-cat]').forEach(btn => {
+      btn.onclick = () => { state.selectedCategory = btn.dataset.cat; renderCategoryDetail(state.selectedCategory, derived, tickets); renderCategoryButtons(derived, tickets); };
+    });
+  }
+
+  function countItems(cat){ return state.lines.filter(l => l.category === cat).length; }
+
+  function renderCategoryDetail(cat, derived, tickets){
+    const info = CATEGORY_INFO[cat];
+    const items = state.lines.filter(l => l.category === cat).sort((a,b)=>b.amount-a.amount);
+    const total = items.reduce((a,b)=>a+b.amount,0);
+    let subtitle = '';
+    if(cat === 'tcg'){
+      const subRows = Object.entries(derived.subTotals).filter(([k]) => TCG_LICENSES.some(l => l.label === k) || k === 'Autre TCG').sort((a,b)=>b[1]-a[1]);
+      subtitle = `<div class="hint" style="margin-bottom:10px">Sous-familles détectées : ${subRows.map(([k,v])=>`${esc(k)} (${esc(fmtEUR(v))})`).join(' · ') || '—'}</div>`;
+    }
+    $('categoryDetail').innerHTML = `<h3><span class="dot" style="background:${info.color};margin-right:8px"></span>${info.label} — ${esc(fmtEUR(total))}</h3>${subtitle}<div class="items">${items.length ? items.slice(0,120).map(renderItemCard).join('') : '<div class="hint">Aucune ligne détectée.</div>'}</div>${items.length>120?`<div class="hint" style="margin-top:10px">${items.length-120} ligne(s) supplémentaire(s) masquée(s) pour garder l’affichage lisible.</div>`:''}`;
+  }
+
+  function renderItemCard(item){
+    const pays = item.paymentBreakdown.length ? item.paymentBreakdown.map(p => `<span class="badge">${esc(p.method)} : ${esc(fmtEUR(p.amount))}</span>`).join('') : '<span class="badge">Paiement non identifié</span>';
+    return `<div class="item"><div><strong>${esc(item.name)}</strong><small>${esc(item.subcategory)} · Ticket ${esc(item.ticket)} · ${esc(item.date)} ${esc(item.time)}</small></div><div class="right"><strong>${esc(fmtEUR(item.amount))}</strong></div><div class="paybadges">${pays}</div></div>`;
+  }
+
+  function renderTicketsTable(tickets, filter){
+    const f = normalize(filter);
+    const rows = tickets.filter(t => {
+      if(!f) return true;
+      const hay = normalize([t.ticket,t.employee,t.customer,t.date,t.time,t.items.map(i=>i.name).join(' ')].join(' '));
+      return hay.includes(f);
+    }).map(t => {
+      const products = t.items.map(i => `${i.name} — ${fmtEUR(i.amount)}${i.paymentBreakdown.length ? ' [' + i.paymentBreakdown.map(p => `${p.method} ${fmtEUR(p.amount)}`).join(' · ') + ']' : ''}`).join('<br>');
+      const payment = t.payments.length ? t.payments.map(p => `${p.method} ${fmtEUR(p.amount)}`).join('<br>') : '—';
+      return `<tr><td>${esc(t.date)}</td><td>${esc(t.time)}</td><td class="mono">${esc(t.ticket)}</td><td>${esc(t.employee)}</td><td>${esc(t.customer || '—')}</td><td>${products}</td><td class="right"><strong>${esc(fmtEUR(t.total))}</strong></td><td>${payment}</td></tr>`;
+    }).join('');
+    $('ticketsTable').querySelector('tbody').innerHTML = rows || '<tr><td colspan="8" class="muted">Aucun ticket.</td></tr>';
+  }
+
+  function updateManualGap(){
+    const v1 = parseLooseNumber($('manual1').value);
+    const v2 = parseLooseNumber($('manual2').value);
+    if(v1 == null || v2 == null){
+      $('cbGap').textContent = '—';
+      $('cbGap').className = 'value';
+      $('cbGapMeta').textContent = 'Renseigne les deux valeurs';
+      return;
+    }
+    const cbTotal = parseLooseNumber(($('cbTotal').textContent || '0').replace('€','')) || 0;
+    const diff = round2((v1 + v2) - cbTotal);
+    $('cbGap').textContent = fmtEUR(diff);
+    $('cbGap').className = 'value ' + (Math.abs(diff) < 0.009 ? 'ok' : 'bad');
+    const count = $('cbCount').textContent;
+    $('cbGapMeta').textContent = Math.abs(diff) < 0.009 ? 'Aucun décalage' : `Écart détecté · ${count}`;
+  }
+
+  function exportCSV(rows, filename, mapper){
+    const csv = rows.map(mapper).join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function getCSS(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
+
+  function analyze(){
+    const raw = $('input').value.trim();
+    if(!raw){ $('status').textContent = 'Colle un journal avant de lancer l’analyse.'; return; }
+    const tickets = parseTickets(raw);
+    const derived = buildDerived(tickets);
+    const paymentHeader = extractPaymentSummary(raw);
+    const period = extractPeriod(raw);
+    render({ tickets, derived, paymentHeader, period });
+    $('status').textContent = `Analyse terminée · ${tickets.length} ticket(s) · ${derived.lines.length} ligne(s) produit(s).`;
+    localStorage.setItem(STORAGE_KEY, raw);
+  }
+
+  const sample = `Journal de caisse en Euro
+Liste des paiements
+Carte Bancaire 3 73,70 0 0,00 73,70
+Espèces 1 19,90 0 0,00 19,90
+02/01/2026
+11:59:14 Barrez-Girardot Zao TIC-1-008715 Vente
+02/01/2026
+11:59:14 Barrez-Girardot Zao TIC-1-008715 WITDMPLBOFR Magic : Booster de Jeu - Tarkir : la tempête des dragons x 3 15,00
+02/01/2026
+11:59:14 Barrez-Girardot Zao TIC-1-008715 FR Taux standard (20%) [20%] 3,00
+02/01/2026
+11:59:14 Barrez-Girardot Zao TIC-1-008715 Mode de paiement : Carte Bancaire 18,00
+Total Document : 18,00
+02/01/2026
+12:30:17 Barrez-Girardot Zao TIC-1-008717 Vente
+02/01/2026
+12:30:17 Barrez-Girardot Zao TIC-1-008717 PIX464 Scrabble Classique x 1 37,416667
+02/01/2026
+12:30:17 Barrez-Girardot Zao TIC-1-008717 FR Taux standard (20%) [20%] 7,483333
+02/01/2026
+12:30:17 Barrez-Girardot Zao TIC-1-008717 Mode de paiement : Carte Bancaire 44,90
+Total Document : 44,90
+02/01/2026
+02:15:40 Barrez-Girardot Zao TIC-1-008718 Vente
+02/01/2026
+02:15:40 Barrez-Girardot Zao TIC-1-008718 CHX25402 Chessex : Set de 7 dés (Opaques) pour JDR Jaune/Noir x 1 6,666667
+02/01/2026
+02:15:40 Barrez-Girardot Zao TIC-1-008718 CHX25405 Chessex : Set de 7 dés (Opaques) pour JDR Vert/Blanc x 1 6,666667
+02/01/2026
+02:15:40 Barrez-Girardot Zao TIC-1-008718 FR Taux standard (20%) [20%] 2,666667
+02/01/2026
+02:15:40 Barrez-Girardot Zao TIC-1-008718 Mode de paiement : Carte Bancaire 16,00
+Total Document : 16,00
+31/01/2026
+06:19:43 Trignol Robin TIC-1-009409 Vente
+31/01/2026
+06:19:43 Trignol Robin TIC-1-009409 YAQ001CR Crack List x 1 16,583333
+31/01/2026
+06:19:43 Trignol Robin TIC-1-009409 FR Taux standard (20%) [20%] 3,316667
+31/01/2026
+06:19:43 Trignol Robin TIC-1-009409 Mode de paiement : Espèces 20,00
+31/01/2026
+06:19:43 Trignol Robin TIC-1-009409 Rendu : 0,10
+Total Document : 19,90`;
+
+  $('analyzeBtn').onclick = analyze;
+  $('sampleBtn').onclick = () => { $('input').value = sample; analyze(); };
+  $('clearBtn').onclick = () => {
+    $('input').value = ''; localStorage.removeItem(STORAGE_KEY); $('status').textContent = 'Zone vidée.';
+  };
+  $('openTicketsBtn').onclick = () => $('ticketsModal').classList.add('show');
+  $('closeTicketsBtn').onclick = () => $('ticketsModal').classList.remove('show');
+  $('ticketsModal').addEventListener('click', e => { if(e.target === $('ticketsModal')) $('ticketsModal').classList.remove('show'); });
+  $('ticketFilter').addEventListener('input', () => renderTicketsTable(state.tickets, $('ticketFilter').value || ''));
+  $('manual1').addEventListener('input', updateManualGap);
+  $('manual2').addEventListener('input', updateManualGap);
+  $('exportTicketsBtn').onclick = () => {
+    if(!state.tickets.length) return;
+    exportCSV([
+      'Date;Heure;Ticket;Employé;Client;Total;Paiements;Produits'
+    ].concat(state.tickets.map(t => [
+      t.date, t.time, t.ticket, `"${(t.employee||'').replace(/"/g,'""')}"`, `"${(t.customer||'').replace(/"/g,'""')}"`,
+      String(t.total).replace('.',','),
+      `"${t.payments.map(p=>`${p.method} ${fmtEUR(p.amount)}`).join(' | ').replace(/"/g,'""')}"`,
+      `"${t.items.map(i=>`${i.name} ${fmtEUR(i.amount)}`).join(' | ').replace(/"/g,'""')}"`
+    ].join(';'))), 'tickets_lgdj.csv', r => r);
+  };
+  $('exportLinesBtn').onclick = () => {
+    if(!state.lines.length) return;
+    exportCSV([
+      'Date;Heure;Ticket;Employé;Client;Catégorie;Sous-catégorie;Produit;Montant;Paiements'
+    ].concat(state.lines.map(l => [
+      l.date,l.time,l.ticket,`"${(l.employee||'').replace(/"/g,'""')}"`, `"${(l.customer||'').replace(/"/g,'""')}"`,
+      CATEGORY_INFO[l.category].label, `"${(l.subcategory||'').replace(/"/g,'""')}"`, `"${(l.name||'').replace(/"/g,'""')}"`,
+      String(l.amount).replace('.',','), `"${l.paymentBreakdown.map(p=>`${p.method} ${fmtEUR(p.amount)}`).join(' | ').replace(/"/g,'""')}"`
+    ].join(';'))), 'lignes_lgdj.csv', r => r);
+  };
+
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if(saved){ $('input').value = saved; analyze(); }
+})();
+</script>
+</body>
+</html>
