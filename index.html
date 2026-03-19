@@ -1,802 +1,2746 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LGDJ — Analyse Journal de Caisse</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LGDJ — Extracteur CA v0.7.15 (Offline)</title>
   <style>
     :root{
-      --bg:#0f1115;--card:#171b22;--card2:#11151b;--line:#2a3240;--text:#edf2f7;--muted:#9fb0c3;
-      --accent:#6ea8fe;--accent2:#9a7cff;--good:#28c76f;--warn:#ffb020;--bad:#ff5c5c;
-      --tcg:#6ea8fe;--board:#28c76f;--acc:#ffb020;--puzzle:#9a7cff;--other:#7a8699;
+      --ver:"v0.7.16";
+
+      --bg0:#0b1020;
+      --bg1:#0c1426;
+
+      --accent:#60a5fa;
+      --accent2:#93c5fd;
+      --accentGlow: rgba(96,165,250,.18);
+      --pieBase:#60a5fa;
+
+      --panel: rgba(255,255,255,.06);
+      --panel2: rgba(0,0,0,.22);
+      --text:#eef2ff;
+      --muted:#aab3c7;
+      --line:rgba(255,255,255,.10);
+      --shadow: 0 18px 55px rgba(0,0,0,.45);
+
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --bad:#fb7185;
+
+      --r:18px;
+      --btn: rgba(255,255,255,.08);
+      --btnH: rgba(255,255,255,.12);
+      --chip: rgba(255,255,255,.06);
+      --input: rgba(0,0,0,.18);
+
+      /* hover glow */
+      --hoverWhite: rgba(255,255,255,.18);
+      --hoverBox: 0 0 0 1px rgba(255,255,255,.14) inset, 0 0 18px rgba(255,255,255,.10);
+      --hoverDrop: drop-shadow(0 0 10px rgba(255,255,255,.16));
     }
+
     *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#0c0f14,#12161d);color:var(--text)}
-    .wrap{max-width:1400px;margin:0 auto;padding:18px}
-    .title{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:14px}
-    h1{margin:0;font-size:24px}
-    .sub{color:var(--muted);font-size:13px}
-    .grid{display:grid;gap:14px}
-    .top{grid-template-columns:1.2fr .8fr}
-    .middle{grid-template-columns:1.05fr .95fr}
-    @media (max-width:1100px){.top,.middle{grid-template-columns:1fr}}
-    .card{background:rgba(23,27,34,.92);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 14px 40px rgba(0,0,0,.18)}
-    h2{margin:0 0 12px;font-size:16px}
-    h3{margin:0 0 10px;font-size:14px}
-    textarea{width:100%;min-height:240px;background:#0f1319;border:1px solid var(--line);border-radius:14px;color:var(--text);padding:14px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
-    button,input,select{background:#0f1319;border:1px solid var(--line);color:var(--text);border-radius:12px;padding:10px 12px;font-size:13px}
-    button{cursor:pointer}
-    button.primary{background:#1d3a63;border-color:#335a92}
-    button.ghost{background:transparent}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .row > *{min-width:0}
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-    @media (max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}}
-    @media (max-width:560px){.stats{grid-template-columns:1fr}}
-    .stat{background:var(--card2);border:1px solid var(--line);border-radius:16px;padding:14px}
-    .stat .label{color:var(--muted);font-size:12px;margin-bottom:6px}
-    .stat .value{font-size:24px;font-weight:700}
-    .stat .meta{font-size:12px;color:var(--muted);margin-top:4px}
-    .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
-    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    @media (max-width:900px){.kpis{grid-template-columns:1fr}}
-    .kpi{background:var(--card2);border:1px solid var(--line);border-radius:16px;padding:14px}
-    .split{display:grid;grid-template-columns:380px 1fr;gap:18px;align-items:start}
-    @media (max-width:900px){.split{grid-template-columns:1fr}}
-    .chartBox{display:flex;justify-content:center;align-items:center;padding:10px}
-    .legend{display:grid;gap:10px}
-    .legend button{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;width:100%;text-align:left;background:var(--card2)}
-    .dot{width:12px;height:12px;border-radius:999px;display:inline-block}
-    .details{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
-    .items{display:grid;gap:8px}
-    .item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 12px;background:var(--card2);border:1px solid var(--line);border-radius:14px}
-    @media (max-width:700px){.item{grid-template-columns:1fr auto}}
-    .item small{display:block;color:var(--muted);margin-top:4px}
-    .paybadges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-    .badge{font-size:11px;padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:#0f1319;color:#dbe6f2}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px 8px;border-top:1px solid var(--line);font-size:13px;vertical-align:top}
-    th{text-align:left;color:#d7e1ec;font-size:12px}
-    .right{text-align:right;white-space:nowrap}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color:var(--text);
+      background:
+        radial-gradient(900px 520px at 18% 12%, var(--accentGlow), transparent 60%),
+        radial-gradient(900px 520px at 80% 14%, rgba(34,197,94,.10), transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg0));
+      overflow:hidden;
+    }
+
+    .app{height:100vh; display:flex; flex-direction:column;}
+
+    .topbar{
+      padding:12px 14px;
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+    }
+
+    .brand{display:flex;align-items:center;gap:10px;font-weight:950;letter-spacing:.2px}
+    .logo{
+      width:36px;height:36px;border-radius:14px;
+      border:1px solid var(--line);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 25%, transparent), rgba(0,0,0,.08));
+      display:grid;place-items:center;
+      box-shadow: var(--shadow);
+    }
+    .brandTitle{display:flex;flex-direction:column;line-height:1.05}
+    .verBtn{
+      margin-top:2px;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:900;
+      background:transparent;
+      border:none;
+      padding:0;
+      text-align:left;
+      cursor:pointer;
+    }
+    .verBtn:hover{color:var(--text)}
+
+    .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+
+    .chipBtn{
+      cursor:pointer;
+      font-size:12px;color:var(--muted);
+      border:1px solid var(--line);
+      background: var(--chip);
+      padding:6px 10px;border-radius:999px;
+      white-space:nowrap;
+      font-weight:900;
+    }
+    .chipBtn:hover{background: rgba(255,255,255,.10); color:var(--text)}
+
+    button{
+      cursor:pointer;
+      border:1px solid var(--line);
+      background: var(--btn);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius: 12px;
+      font-weight:900;
+      font-size:12px;
+      transition: background .15s ease, transform .04s ease, box-shadow .15s ease;
+      user-select:none;
+    }
+    button:hover{background:var(--btnH)}
+    button:active{transform: translateY(1px)}
+    button:disabled{opacity:.55; cursor:not-allowed}
+
+    .btnTutor{border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12)}
+    .btnTutor:hover{background: rgba(34,197,94,.18)}
+    .btnGear{border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10)}
+    .btnGear:hover{background: rgba(245,158,11,.16)}
+    .btnPrimary{border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: color-mix(in srgb, var(--accent) 14%, transparent)}
+    .btnPrimary:hover{background: color-mix(in srgb, var(--accent) 20%, transparent)}
+
+    .main{
+      flex:1;
+      padding:0 14px 14px;
+      display:grid;
+      grid-template-columns: .68fr 1.32fr;
+      gap:12px;
+      min-height:0;
+    }
+    @media(max-width:980px){
+      .main{grid-template-columns:1fr;}
+      body{overflow:auto}
+    }
+
+    .panel{
+      border:1px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      border-radius: var(--r);
+      overflow:hidden;
+      min-height:0;
+      display:flex;
+      flex-direction:column;
+      backdrop-filter: blur(10px);
+    }
+
+    .panel .hd{
+      padding:12px;
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      border-bottom:1px solid var(--line);
+      background: var(--panel2);
+    }
+
+    .hdTitle{font-weight:950;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .bd{padding:12px; min-height:0;}
+
+    textarea, input{
+      width:100%;
+      border-radius: 14px;
+      border:1px solid var(--line);
+      background: var(--input);
+      color:var(--text);
+      padding:10px 12px;
+      outline:none;
+      font-size:13px;
+      line-height:1.35;
+    }
+
+    textarea{
+      resize:none;
+      overflow:auto;
+      height: 19vh;
+      min-height: 120px;
+    }
+
+    .inputGrid{
+      display:grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap:10px;
+      height:100%;
+      min-height:0;
+    }
+
+    .label{font-size:12px;color:var(--muted);font-weight:900;letter-spacing:.2px}
+
+    .bannerErr,
+    .bannerWarn{
+      display:none;
+      border-radius: 14px;
+      padding:10px 12px;
+      font-weight:900;
+      font-size:12px;
+      line-height:1.45;
+    }
+    .bannerErr{
+      border:1px solid rgba(251,113,133,.45);
+      background: rgba(251,113,133,.12);
+    }
+    .bannerWarn{
+      border:1px solid rgba(245,158,11,.40);
+      background: rgba(245,158,11,.10);
+      cursor:pointer;
+    }
+
+    .miniTotals{
+      border:1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(0,0,0,.16);
+      padding:10px;
+      display:grid;
+      gap:8px;
+    }
+
+    .totalRow{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:10px 10px;
+      border:1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      background: rgba(0,0,0,.20);
+    }
+    .totalRow .lbl{font-weight:950; letter-spacing:.15px}
+    .totalRow .val{font-weight:980; font-size:16px}
+    .valGreen{color:var(--ok)}
+
+    /* Copyable value spans */
+    .copyable{
+      cursor: pointer;
+      user-select: none;
+      border-radius: 6px;
+      padding: 1px 5px;
+      transition: background .12s;
+    }
+    .copyable:hover{
+      background: rgba(255,255,255,.10);
+    }
+    .copyable:active{
+      background: rgba(255,255,255,.20);
+    }
+    @keyframes copyFlash{
+      0%  { background: rgba(96,165,250,.40); }
+      100%{ background: transparent; }
+    }
+    .copyFlash{
+      animation: copyFlash .45s ease forwards;
+    }
+
+    /* History */
+    .histSearch{
+      display:none;
+      gap:8px;
+      align-items:center;
+      padding-top:6px;
+    }
+    .histSearch input{
+      height:36px;
+      padding:8px 10px;
+      border-radius:12px;
+      font-size:12px;
+    }
+
+    .microHist{
+      display:grid;
+      gap:8px;
+      padding:2px 0 0;
+      max-height:224px;
+      overflow:auto;
+    }
+    .microHist.withSearch{max-height:264px;}
+
+    .histCard{
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+      border-radius: 14px;
+      padding:10px 42px 10px 10px; /* fixed space for delete */
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      cursor:pointer;
+      position:relative;
+    }
+    .histCard:hover{
+      background: rgba(255,255,255,.10);
+      box-shadow: var(--hoverBox);
+    }
+    .histLeft{display:flex;align-items:center;gap:10px;min-width:0}
+    .pill{
+      height:18px;
+      padding:0 8px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:950;
+      display:flex;align-items:center;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.22);
+      white-space:nowrap;
+    }
+    .histText{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width: 240px;
+    }
+    .histRight{
+      text-align:right;
+      font-weight:980;
+      white-space:nowrap;
+      font-size:12px;
+    }
+    .histDel{
+      position:absolute;
+      right:8px;
+      top:50%;
+      transform:translateY(-50%);
+      width:30px;height:30px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.24);
+      color:var(--muted);
+      display:grid;
+      place-items:center;
+      font-weight:980;
+      line-height:1;
+      opacity:.2;
+    }
+    .histCard:hover .histDel{opacity:1;}
+    .histDel:hover{
+      background: rgba(251,113,133,.14);
+      border-color: rgba(251,113,133,.28);
+      color:var(--text);
+    }
+
+    .rightScroll{
+      height:100%;
+      overflow:auto;
+      padding:12px;
+      display:grid;
+      gap:12px;
+    }
+
+    .alert{
+      border:1px solid rgba(245,158,11,.40);
+      background: rgba(245,158,11,.10);
+      border-radius: 14px;
+      padding:10px 12px;
+      font-weight:850;
+      font-size:12px;
+      display:none;
+    }
+
+    .combo{
+      border-radius: var(--r);
+      border:1px solid var(--line);
+      background: var(--panel);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      backdrop-filter: blur(10px);
+    }
+    .comboHd{
+      padding:12px 14px;border-bottom:1px solid var(--line);
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      background: var(--panel2);
+    }
+    .comboTitle{display:flex; align-items:center; gap:10px; min-width:0; font-weight:980;}
+    .comboTitle span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .comboMeta{
+      display:flex; align-items:center; gap:10px;
+      color:var(--muted);
+      font-weight:900;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .comboBd{
+      padding:12px 14px;
+      display:grid;
+      grid-template-columns: 200px 1fr;
+      gap:14px;
+      align-items:center;
+      min-height:0;
+    }
+    @media(max-width:980px){
+      .comboBd{grid-template-columns:1fr}
+    }
+
+    .legend{
+      display:grid;gap:8px;
+      min-height:0;
+      max-height: 56vh;
+      overflow:auto;
+      padding-right:6px;
+      scroll-behavior:smooth;
+    }
+    .legRow{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:8px 0;
+      border-bottom:1px dashed rgba(125,125,155,.22);
+      cursor:pointer;
+      user-select:none;
+    }
+    .legRow:last-child{border-bottom:none}
+    .legRow:hover{
+      box-shadow: var(--hoverBox);
+      border-radius:10px;
+    }
+    .legRow:hover .legName{color:var(--text)}
+
+    .legL{display:flex;align-items:center;gap:10px; min-width:0; flex:1 1 auto;}
+    .sw{width:10px;height:10px;border-radius:4px; flex:0 0 auto;}
+    .legName{
+      color:var(--muted);font-weight:950;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    .legR{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex:0 0 auto;
+      min-width:0;
+    }
+    .legVal{
+      font-weight:950;
+      white-space:nowrap;
+      display:flex;
+      align-items:baseline;
+      gap:8px;
+      justify-content:flex-end;
+    }
+    .qtyMini{color:var(--muted); font-weight:850; font-size:12px; white-space:nowrap;}
+
+    .eyeBtn{
+      width:28px;height:28px;
+      padding:0;
+      border-radius:10px;
+      display:none;
+      place-items:center;
+      font-size:13px;
+      line-height:1;
+      border-color: rgba(255,255,255,.14);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      flex:0 0 auto;
+    }
+    .eyeBtn:hover{
+      box-shadow: var(--hoverBox);
+    }
+    .dev-on .eyeBtn{display:grid;}
+
+    .legRow.hi .legName{color:color-mix(in srgb, var(--accent) 78%, var(--text));}
+    .legRow.hi{
+      box-shadow: var(--hoverBox);
+      border-radius:10px;
+    }
+
+    .slice{
+      cursor:pointer;
+      transition: opacity .15s ease, filter .15s ease, stroke .15s ease;
+    }
+    .slice:hover{
+      opacity:.92;
+      filter: var(--hoverDrop);
+      stroke: rgba(255,255,255,.18);
+      stroke-width: 1.2;
+    }
+    .slice.hi{
+      opacity:.94;
+      filter: var(--hoverDrop);
+      stroke: rgba(255,255,255,.22);
+      stroke-width: 1.3;
+    }
+
+    .empty{padding:22px;color:var(--muted);text-align:center;font-weight:900}
+
+    .modalBg{
+      position:fixed;inset:0;background: rgba(0,0,0,.45);
+      display:none;align-items:center;justify-content:center;
+      padding:16px;z-index:50;
+    }
+    .modal{
+      width:min(980px, 100%);
+      max-height: min(88vh, 980px);
+      overflow:auto;
+      border-radius: 18px;
+      border:1px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+    .modal .mhd{
+      padding:14px 16px;border-bottom:1px solid var(--line);
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      background: var(--panel2);
+    }
+    .modal .mbd{padding:14px 16px;}
+
+    .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;}
+    .pageTitle{font-weight:980;font-size:16px;margin:0 0 6px 0}
+    .pageText{color:var(--text); line-height:1.55}
     .muted{color:var(--muted)}
-    .hint{font-size:12px;color:var(--muted);line-height:1.45}
-    .footerStats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    @media (max-width:900px){.footerStats{grid-template-columns:1fr}}
-    details summary{cursor:pointer;list-style:none}
-    details summary::-webkit-details-marker{display:none}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;background:#0f1319;border:1px solid var(--line);font-size:12px;color:#dce6f1}
-    .modal{position:fixed;inset:0;background:rgba(5,8,12,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000}
-    .modal.show{display:flex}
-    .modalPanel{width:min(1200px,96vw);max-height:90vh;overflow:auto;background:#131821;border:1px solid var(--line);border-radius:20px;padding:16px}
-    .stickyActions{position:sticky;top:0;background:#131821;padding-bottom:10px;z-index:5}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-    .divider{height:1px;background:var(--line);margin:14px 0}
-    .small{font-size:12px}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .tab{
+      padding:8px 10px;border-radius:12px;border:1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      font-weight:900;font-size:12px;cursor:pointer
+    }
+    .tab.active{background: color-mix(in srgb, var(--accent) 16%, transparent);border-color: color-mix(in srgb, var(--accent) 35%, transparent)}
+
+    .codeBox{
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      border-radius:14px;
+      padding:10px 12px;
+      white-space:pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      line-height:1.45;
+      max-height: 56vh;
+      overflow:auto;
+    }
+
+    .confirmBox{
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.18);
+      border-radius: 14px;
+      padding:12px;
+      line-height:1.5;
+    }
+
+    .foot{
+      padding:0 14px 14px;
+      display:flex;justify-content:space-between;align-items:center;gap:10px;
+      color:var(--muted);font-size:11px;font-weight:800;
+    }
+    .contact{color:var(--muted);font-size:11px;font-weight:900}
+
+    .devDot{
+      display:none;
+      height:18px;
+      padding:0 8px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:950;
+      border:1px solid rgba(245,158,11,.35);
+      background: rgba(245,158,11,.12);
+      color:var(--text);
+    }
+    .devDot.on{display:inline-flex; align-items:center; gap:6px;}
   </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="title">
-      <div>
-        <h1>Analyse Journal de Caisse</h1>
-        <div class="sub">Copie-colle le journal brut, puis l’app reconstruit les tickets, les paiements et les catégories.</div>
+  <div class="app" id="app">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 19V5" stroke="currentColor" stroke-opacity=".9" stroke-width="2" stroke-linecap="round"/>
+            <path d="M4 19H20" stroke="currentColor" stroke-opacity=".9" stroke-width="2" stroke-linecap="round"/>
+            <path d="M8 16V11" stroke="currentColor" stroke-opacity=".85" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 16V8" stroke="currentColor" stroke-opacity=".85" stroke-width="2" stroke-linecap="round"/>
+            <path d="M16 16V13" stroke="currentColor" stroke-opacity=".85" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="brandTitle">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div>Extracteur CA</div>
+            <span class="devDot" id="devDot">DEV</span>
+          </div>
+          <button class="verBtn" id="btnVer">v0.7.16</button>
+        </div>
       </div>
-      <div class="pill"><span>Mode</span><strong>100% local</strong></div>
+
+      <div class="actions">
+        <button class="chipBtn" id="btnStats">
+          Lues: <span class="mono" id="metaLines">0</span> •
+          Utilisées: <span class="mono" id="metaUsed">0</span> •
+          Erreurs: <span class="mono" id="metaErr">0</span>
+        </button>
+        <button class="btnTutor" id="btnTut">Tutoriel</button>
+        <button class="btnGear" id="btnSettings">Paramètres</button>
+      </div>
     </div>
 
-    <section class="grid top">
-      <div class="card">
-        <h2>1) Journal de caisse</h2>
-        <textarea id="input" placeholder="Colle ici le journal de caisse brut…"></textarea>
-        <div class="row" style="margin-top:12px">
-          <button class="primary" id="analyzeBtn">Analyser</button>
-          <button id="sampleBtn">Charger un exemple</button>
-          <button class="ghost" id="clearBtn">Vider</button>
-          <button class="ghost" id="exportTicketsBtn">Exporter tickets CSV</button>
-          <button class="ghost" id="exportLinesBtn">Exporter lignes CSV</button>
-          <span id="status" class="small muted"></span>
+    <div class="main">
+      <section class="panel">
+        <div class="hd">
+          <div class="hdTitle">Copier-coller PrestaShop</div>
+          <div class="actions">
+            <button class="btnPrimary" id="btnPaste">Coller</button>
+          </div>
         </div>
-        <div class="divider"></div>
-        <div class="hint">
-          L’algorithme repère les tickets, reconstruit les lignes produits, extrait les modes de paiement (CB / espèces / mixte), puis classe les ventes en <strong>TCG</strong>, <strong>Accessoires</strong>, <strong>Casse-tête &amp; Puzzle</strong> et <strong>Jeux de société</strong>. Les paniers moyens TCG / hors TCG utilisent une ventilation proportionnelle pour les tickets mixtes.
-        </div>
-      </div>
 
-      <div class="card">
-        <h2>2) Contrôle encaissements CB</h2>
-        <div class="stats">
-          <div class="stat">
-            <div class="label">CB extrait</div>
-            <div class="value" id="cbTotal">0,00 €</div>
-            <div class="meta" id="cbCount">0 transaction</div>
+        <div class="bd inputGrid">
+          <div>
+            <div class="label">Colle ici (Ctrl+V) — analyse automatique</div>
+            <textarea id="raw" placeholder="Sur PrestaShop : Ctrl+A → Ctrl+C, puis ici Ctrl+V."></textarea>
           </div>
-          <div class="stat">
-            <div class="label">Valeur 1</div>
-            <input id="manual1" type="text" inputmode="decimal" placeholder="0,00" />
-          </div>
-          <div class="stat">
-            <div class="label">Valeur 2</div>
-            <input id="manual2" type="text" inputmode="decimal" placeholder="0,00" />
-          </div>
-          <div class="stat">
-            <div class="label">Décalage</div>
-            <div class="value" id="cbGap">—</div>
-            <div class="meta" id="cbGapMeta">Renseigne les deux valeurs</div>
-          </div>
-        </div>
-        <div class="divider"></div>
-        <div class="kpis">
-          <div class="kpi">
-            <div class="label">Espèces extraites</div>
-            <div class="value" id="cashTotal">0,00 €</div>
-            <div class="meta" id="cashCount">0 transaction</div>
-          </div>
-          <div class="kpi">
-            <div class="label">Total tickets</div>
-            <div class="value" id="ticketCount">0</div>
-            <div class="meta" id="periodText">Aucune période détectée</div>
-          </div>
-          <div class="kpi">
-            <div class="label">CA total</div>
-            <div class="value" id="grandTotal">0,00 €</div>
-            <div class="meta" id="mixedCount">0 ticket mixte</div>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <section class="card" style="margin-top:14px">
-      <div class="row" style="justify-content:space-between;align-items:flex-start">
-        <div>
-          <h2>3) Récap journée / période</h2>
-          <div class="sub">Camembert à gauche, catégories cliquables à droite.</div>
-        </div>
-        <div class="row">
-          <div class="pill"><span>TCG</span><strong id="tcgBig">0,00 €</strong></div>
-          <div class="pill"><span>Jeux hors TCG</span><strong id="boardBig">0,00 €</strong></div>
-          <button id="openTicketsBtn">Voir la liste des tickets</button>
-        </div>
-      </div>
-      <div class="split" style="margin-top:16px">
-        <div class="chartBox">
-          <svg id="pieSvg" width="320" height="320" viewBox="0 0 320 320" aria-label="Camembert CA"></svg>
-        </div>
-        <div>
-          <div class="legend" id="categoryButtons"></div>
-          <div class="details" id="categoryDetail">
-            <div class="hint">Clique sur une catégorie pour afficher son détail ici.</div>
+          <div class="bannerErr" id="parseErr"></div>
+          <div class="bannerWarn" id="dupWarn"></div>
+
+          <div class="miniTotals">
+            <div class="totalRow">
+              <div class="lbl">CA Total (hors TCG / Escape / Évt)</div>
+              <div class="val valGreen"><span id="leftSans" class="copyable" title="Cliquer pour copier le montant">—</span></div>
+            </div>
+            <div class="totalRow">
+              <div class="lbl">CA TOTAL GLOBAL</div>
+              <div class="val"><span id="leftTot" class="copyable" title="Cliquer pour copier le montant">—</span></div>
+            </div>
+
+            <div class="histSearch" id="histSearch">
+              <input id="histQuery" type="text" placeholder="Filtrer l'historique (date / boutique)..." />
+              <button id="histClear" type="button">Effacer</button>
+            </div>
+
+            <div class="microHist" id="microHist"></div>
+          </div>
+
+          <div class="muted" style="font-size:12px;line-height:1.45">
+            Astuce : si tu colles 2 boutiques, on calcule quand même, mais seulement en GLOBAL (catégories).
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="card" style="margin-top:14px">
-      <h2>4) Indicateurs de la journée</h2>
-      <div class="footerStats">
-        <div class="stat">
-          <div class="label">Panier moyen total</div>
-          <div class="value" id="avgTotal">0,00 €</div>
-          <div class="meta">CA total / nombre de tickets</div>
+      <section class="panel">
+        <div class="hd">
+          <div class="hdTitle" id="rightTitle">Résultats</div>
+          <div class="actions">
+            <button id="btnBack" style="display:none">Retour</button>
+          </div>
         </div>
-        <div class="stat">
-          <div class="label">Panier moyen TCG</div>
-          <div class="value" id="avgTCG">0,00 €</div>
-          <div class="meta" id="avgTCGMeta">Ventilation des tickets mixtes incluse</div>
+        <div class="bd" style="padding:0">
+          <div class="rightScroll" id="rightBody">
+            <div class="alert" id="warnTwo">⚠️ Deux boutiques détectées. Détails boutique désactivés (GLOBAL uniquement).</div>
+          </div>
         </div>
-        <div class="stat">
-          <div class="label">Panier moyen Jeux hors TCG</div>
-          <div class="value" id="avgBoard">0,00 €</div>
-          <div class="meta" id="avgBoardMeta">Jeux + accessoires + casse-tête / puzzle</div>
-        </div>
-      </div>
-    </section>
+      </section>
+    </div>
+
+    <div class="foot">
+      <div class="mono">LGDJ — <span id="ver2">v0.7.16</span></div>
+      <div class="contact">Si problème ou suggestion d'amélioration : contacter Zao</div>
+      <div>Offline • Drilldown • HT</div>
+    </div>
   </div>
 
-  <div class="modal" id="ticketsModal">
-    <div class="modalPanel">
-      <div class="stickyActions">
-        <div class="row" style="justify-content:space-between;align-items:center">
-          <div>
-            <h2 style="margin-bottom:4px">Liste des tickets</h2>
-            <div class="sub">Produits, prix, total, paiement, heure, date, ticket et encaisseur.</div>
-          </div>
-          <div class="row">
-            <input id="ticketFilter" type="text" placeholder="Filtrer (ticket, employé, produit...)" />
-            <button class="ghost" id="closeTicketsBtn">Fermer</button>
-          </div>
+  <!-- Tutoriel -->
+  <div class="modalBg" id="tutBg" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" aria-label="Tutoriel">
+      <div class="mhd">
+        <div style="font-weight:980">Tutoriel</div>
+        <button id="btnCloseTut">Fermer</button>
+      </div>
+      <div class="mbd">
+        <div id="tutContent"></div>
+        <div class="pager">
+          <button id="tutPrev">Précédent</button>
+          <div class="muted"><span id="tutIdx">1</span>/<span id="tutTotal">1</span></div>
+          <button id="tutNext" class="btnPrimary">Suivant</button>
         </div>
       </div>
-      <div style="overflow:auto">
-        <table id="ticketsTable">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Heure</th>
-              <th>Ticket</th>
-              <th>Employé</th>
-              <th>Client</th>
-              <th>Produits</th>
-              <th class="right">Total</th>
-              <th>Paiement</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="modalBg" id="setBg" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" aria-label="Paramètres">
+      <div class="mhd">
+        <div style="font-weight:980">Paramètres</div>
+        <button id="btnCloseSet">Fermer</button>
+      </div>
+      <div class="mbd">
+        <div class="label" style="margin-bottom:8px">Affichage</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button id="toggleQty" class="btnPrimary" type="button">Quantités : CACHÉES</button>
+          <button id="toggleEuro" type="button">Symbole € : VISIBLE</button>
+        </div>
+
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,.08);margin:14px 0">
+
+        <div class="label" style="margin-bottom:8px">Classement (les boutons re-classent, ils ne "cachent" pas)</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button id="toggleEvt" class="btnPrimary" type="button">Événements : CATÉGORIE</button>
+          <button id="toggleJdr" class="btnPrimary" type="button">JDR : CATÉGORIE</button>
+          <button id="toggleMergePC" type="button">Puzzles+Casse-tête : SÉPARÉS</button>
+          <button id="toggleTcgAcc" class="btnPrimary" type="button">Accessoires TCG : DANS TCG</button>
+        </div>
+
+        <div class="muted" style="margin-top:10px;font-size:12px;line-height:1.45">
+          Note : si la colonne Quantité n'est pas présente, l'app affiche "—".
+        </div>
+
+        <div class="pager" style="justify-content:flex-end;margin-top:14px;gap:10px">
+          <button id="toggleDev" type="button" style="border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.10)">DEV : OFF</button>
+          <button id="btnReset" style="border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.10)">Réinitialiser</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Changelog -->
+  <div class="modalBg" id="verBg" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" aria-label="Changelog">
+      <div class="mhd">
+        <div style="font-weight:980">Changelog</div>
+        <button id="btnCloseVer">Fermer</button>
+      </div>
+      <div class="mbd" id="verContent"></div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="modalBg" id="statsBg" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" aria-label="Détails des lignes">
+      <div class="mhd">
+        <div style="font-weight:980">Détails des lignes</div>
+        <button id="btnCloseStats">Fermer</button>
+      </div>
+      <div class="mbd">
+        <div class="tabs">
+          <div class="tab active" data-tab="used">Utilisées</div>
+          <div class="tab" data-tab="err">Erreurs</div>
+          <div class="tab" data-tab="ignored">Ignorées</div>
+        </div>
+        <div class="muted" id="statsHint" style="margin-bottom:10px;font-size:12px"></div>
+        <div class="codeBox" id="statsBox">—</div>
+        <div class="pager" style="justify-content:flex-end">
+          <button id="btnCopyStats" class="btnPrimary">Copier</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dev Details -->
+  <div class="modalBg" id="devBg" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" aria-label="Détails DEV">
+      <div class="mhd">
+        <div style="font-weight:980">Détails DEV</div>
+        <button id="btnCloseDev">Fermer</button>
+      </div>
+      <div class="mbd">
+        <div class="confirmBox" id="devSummary" style="margin-bottom:12px"></div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+          <button id="btnCopyDev" class="btnPrimary" type="button">Copier détail</button>
+        </div>
+
+        <div class="label" style="margin:10px 0 8px">Diff de toggles (dernier changement)</div>
+        <div class="codeBox" id="devDiffBox">—</div>
+
+        <div class="label" style="margin:12px 0 8px">Lignes sources + raisons</div>
+        <div class="codeBox" id="devLinesBox">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Duplicate warning -->
+  <div class="modalBg" id="dupBg" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal" aria-label="Avertissement doublon">
+      <div class="mhd">
+        <div style="font-weight:980">Attention : doublon probable</div>
+        <button id="btnCloseDup">Fermer</button>
+      </div>
+      <div class="mbd">
+        <div class="confirmBox" id="dupModalText"></div>
+        <div class="pager" style="justify-content:flex-end; margin-top:12px; gap:10px">
+          <button id="btnDupProceed" class="btnPrimary" type="button">OK, je confirme</button>
+        </div>
       </div>
     </div>
   </div>
 
 <script>
-(function(){
-  const STORAGE_KEY = 'lgdj-journal-analyzer-v1';
-  const state = { raw:'', tickets:[], lines:[], selectedCategory:'tcg', summary:null };
+  const VERSION = "v0.7.16";
 
-  const CATEGORY_INFO = {
-    tcg: { label:'TCG', color:'var(--tcg)' },
-    accessories: { label:'Accessoires', color:'var(--acc)' },
-    puzzle: { label:'Casse-tête & Puzzle', color:'var(--puzzle)' },
-    board: { label:'Jeux de société', color:'var(--board)' }
-  };
+  const BOUTIQUES = [
+    { key: "GAMBETTA", label: "LGDJ Gambetta", needles: ["lgdj gambetta","gambetta"] },
+    { key: "PIGALLE", label: "LGDJ Pigalle", needles: ["lgdj pigalle","pigalle"] }
+  ];
+
+  const IGNORE_LINE_PATTERNS = [
+    "commande en attente de retrait - gambetta",
+    "commande en attente de retrait - pigalle"
+  ];
+
+  const EVENT_KEYWORDS = ["evenement","évènement","evenements","évènements"];
+
+  const OTHER_FORCE = [
+    "acomptes","acompte","reservations","réservations","reste a payer","reste à payer","autres",
+    "accueil",
+    "carte cadeau - les gentlemen du jeu"
+  ];
+
+  const JDR_KEYWORDS = [
+    "chroniques oubliees","chroniques oubliées",
+    "boite d'initiation jeu de roles","boîte d'initiation jeu de rôles",
+    "donjons et chatons",
+    "donjons et dragons","donjons & dragons","donjons et/& dragons",
+    "dungeons & dragons","dungeons and dragons","d&d",
+    "manuel","manuels",
+    "jeux de roles","jeux de rôle","jeux de rôles","jeu de roles","jeu de rôle","jdr"
+  ];
+
+  const ESCAPE_GAME_KEYWORDS = ["escape game","4escape","4-escape"];
+
+  const PUZZLE_KEYWORDS = [
+    "puzzle","puzzles","logique et puzzles",
+    "cavallini","cavalini",
+    "jour ferie","jours feries","jour férié","jours fériés",
+    "puzzle 100p","puzzle 500p","puzzle 1000p","puzzle 3d",
+    "escape puzzle"
+  ];
+
+  const CASSE_KEYWORDS = [
+    "casse-tete","casse-têtes","casse tete","casse tetes",
+    "smart games","smartgame","perplexus",
+    "gravitrax"
+  ];
+
+  const ACCESSORY_KEYWORDS = [
+    "accessoire","accessoires","accessoires cartes",
+    "protege-carte","protège-carte","protege carte","protège carte",
+    "sleeve","sleeves","toploader","top loaders","top loader",
+    "deck box","deckbox","classeur","portfolio","binder",
+    "piste de des","piste de dés","pistes de des","pistes de dés",
+    "tapis","playmat",
+    "protections acryliques",
+    "produits le grenier ludique","grenier ludique",
+    "booknook","booknooks"
+  ];
 
   const TCG_LICENSES = [
-    { key:'pokemon', label:'Pokémon', patterns:['pokemon','pokémon','ev10','ev10.5','me01','me02','me2.5','tripack','duopack','etb','elite trainer box','coffret ultra premium','upc','pokebox','pokebox','bundle de 6 boosters','booster mega-evolution'] },
-    { key:'lorcana', label:'Lorcana', patterns:['lorcana','chapitre','illumineers trove','starter deck lorcana'] },
-    { key:'onepiece', label:'One Piece', patterns:['one piece','op-',' op','eb03','double pack','display 24 boosters'] },
-    { key:'magic', label:'Magic', patterns:['magic','mtg','tarkir','fondations','mornebrune','play booster','booster de jeu'] },
-    { key:'altered', label:'Altered', patterns:['altered'] },
-    { key:'fleshandblood', label:'Flesh and Blood', patterns:['flesh and blood','flesh&blood','fab ','fab:'] },
-    { key:'starwarsunlimited', label:'Star Wars Unlimited', patterns:['star wars unlimited'] },
-    { key:'yugioh', label:'Yu-Gi-Oh!', patterns:['yu-gi-oh','yugioh'] }
+    "Pokémon","Lorcana","One Piece","Magic","Altered","Flesh and Blood",
+    "Star Wars Unlimited","Riftbound","Yu-Gi-Oh","Naruto"
   ];
 
-  const ACCESSORY_PATTERNS = [
-    'dragon shield','sleeve','sleeves','perfect fit','pochette','protège-carte','protege-carte','protège carte','protege carte',
-    'deck box','deckbox','binder','portfolio','classeur','toploader','playmat','tapis','set de 7 des','set de 7 dés','dés','des',
-    'piste de des','piste de dés','pistes de des','pistes de dés','chessex','token','jeton'
+  const LICENSE_PATTERN_RULES = [
+    { lic: "Lorcana", re: /\b(chapitre|chapter)\s*\d+\b/i },
+    { lic: "Pokémon", re: /\b(me|ev)\s*\d+(?:\.\d+)?\b/i },
+    { lic: "One Piece", re: /\b(op|eb)\s*\d+\b/i },
+    { lic: "Altered", re: /\baltered\s*\d+\b/i },
   ];
 
-  const PUZZLE_PATTERNS = [
-    'puzzle','perplexus','smartgames','smart games','hanayama','casse-tete','casse-tête','100 pieces','100 pièces','500 pieces','500 pièces','1000 pieces','1000 pièces'
-  ];
+  const TOP = {
+    JEUX: "Jeux de société",
+    TCG: "TCG",
+    JDR: "Jeux de rôles",
+    ACC: "Accessoires",
+    PUZ: "Puzzles",
+    CASSE: "Casse-tête",
+    PUZCASSE: "Puzzles & Casse-tête",
+    EVT: "Événement",
+    ESC: "Escape Game",
+    AUTRE: "Autre",
+    AUTRE_DELETED: "Catégories supprimées",
+    JEUX_ENFANTS: "Jeux enfants"
+  };
 
-  const TCG_PRODUCT_PATTERNS = [
-    'booster','display','deck','starter','bundle','etb','elite trainer box','tripack','duopack','collector','coffret','mini tin','tin','blister','boite premium','boite ultra premium','pokebox'
-  ];
+  const el = (id) => document.getElementById(id);
+  const els = {
+    raw: el('raw'),
+    btnPaste: el('btnPaste'),
 
-  function $(id){ return document.getElementById(id); }
-  function esc(s){ return (s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    rightTitle: el('rightTitle'),
+    rightBody: el('rightBody'),
+    warnTwo: el('warnTwo'),
+    btnBack: el('btnBack'),
+
+    metaLines: el('metaLines'),
+    metaUsed: el('metaUsed'),
+    metaErr: el('metaErr'),
+
+    leftSans: el('leftSans'),
+    leftTot: el('leftTot'),
+
+    microHist: el('microHist'),
+    histSearch: el('histSearch'),
+    histQuery: el('histQuery'),
+    histClear: el('histClear'),
+
+    parseErr: el('parseErr'),
+    dupWarn: el('dupWarn'),
+
+    btnTut: el('btnTut'),
+    tutBg: el('tutBg'),
+    btnCloseTut: el('btnCloseTut'),
+    tutContent: el('tutContent'),
+    tutPrev: el('tutPrev'),
+    tutNext: el('tutNext'),
+    tutIdx: el('tutIdx'),
+    tutTotal: el('tutTotal'),
+
+    btnSettings: el('btnSettings'),
+    setBg: el('setBg'),
+    btnCloseSet: el('btnCloseSet'),
+    toggleQty: el('toggleQty'),
+    toggleEuro: el('toggleEuro'),
+    toggleEvt: el('toggleEvt'),
+    toggleJdr: el('toggleJdr'),
+    toggleMergePC: el('toggleMergePC'),
+    toggleTcgAcc: el('toggleTcgAcc'),
+    toggleDev: el('toggleDev'),
+    btnReset: el('btnReset'),
+
+    btnVer: el('btnVer'),
+    ver2: el('ver2'),
+    verBg: el('verBg'),
+    btnCloseVer: el('btnCloseVer'),
+    verContent: el('verContent'),
+
+    btnStats: el('btnStats'),
+    statsBg: el('statsBg'),
+    btnCloseStats: el('btnCloseStats'),
+    statsHint: el('statsHint'),
+    statsBox: el('statsBox'),
+    btnCopyStats: el('btnCopyStats'),
+
+    devDot: el('devDot'),
+    devBg: el('devBg'),
+    btnCloseDev: el('btnCloseDev'),
+    devSummary: el('devSummary'),
+    devLinesBox: el('devLinesBox'),
+    devDiffBox: el('devDiffBox'),
+    btnCopyDev: el('btnCopyDev'),
+
+    dupBg: el('dupBg'),
+    btnCloseDup: el('btnCloseDup'),
+    dupModalText: el('dupModalText'),
+    btnDupProceed: el('btnDupProceed'),
+  };
+
+  const DEFAULTS = {
+    showQty: 'OFF',
+    showEuro: 'ON',
+    eventsStandalone: 'YES',
+    jdrStandalone: 'YES',
+    mergePuzzleCasse: 'NO',
+    tcgAccessoriesInTcg: 'YES',
+    devMode: 'OFF',
+  };
+
+  const settings = {
+    showQty: (localStorage.getItem('lgdj_qty') || DEFAULTS.showQty),
+    showEuro: (localStorage.getItem('lgdj_euro') || DEFAULTS.showEuro),
+    eventsStandalone: (localStorage.getItem('lgdj_evt') || DEFAULTS.eventsStandalone),
+    jdrStandalone: (localStorage.getItem('lgdj_jdr') || DEFAULTS.jdrStandalone),
+    mergePuzzleCasse: (localStorage.getItem('lgdj_merge_pc') || DEFAULTS.mergePuzzleCasse),
+    tcgAccessoriesInTcg: (localStorage.getItem('lgdj_tcgacc') || DEFAULTS.tcgAccessoriesInTcg),
+    devMode: (localStorage.getItem('lgdj_dev') || DEFAULTS.devMode),
+  };
+
+  let parsed = null;
+  let view = { level: 'dashboard', category: null, tcgLicense: null, globalOnly: false };
+  let debug = { used: [], err: [], ignored: [] };
+  let parseTimer = null;
+
+  let lastDiffText = "—";
+  let prevSettingsSnap = null;
+  let lastDevPayload = null;
+  let dupConfirmedSig = null;
+
   function normalize(s){
-    return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\u00a0/g,' ').replace(/[ \t]+/g,' ').trim();
+    return (s||"").toString().normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase();
   }
-  function fmtEUR(n){
-    const v = Number(n||0);
-    return v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+
+  function escapeHtml(s){
+    return (s||'').toString()
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#039;');
   }
-  function parseLooseNumber(input){
-    if(input == null) return null;
-    let s = String(input).trim();
-    if(!s) return null;
-    s = s.replace(/\s/g,'').replace(',', '.');
-    const v = Number(s);
-    return Number.isFinite(v) ? v : null;
+
+  function formatEUR(n){
+    const v = Number.isFinite(n) ? n : 0;
+    return v.toLocaleString('fr-FR',{minimumFractionDigits:2, maximumFractionDigits:2});
   }
-  function parseFrenchAmount(text){
-    if(!text) return null;
-    let s = String(text).replace(/\u00a0/g,' ').trim();
-    const matches = s.match(/-?\d{1,3}(?:[ .]\d{3})*(?:,\d{1,2})|-?\d+(?:,\d{1,2})|-?\d+(?:\.\d{1,2})?/g);
-    if(!matches || !matches.length) return null;
-    let token = matches[matches.length - 1].replace(/ /g,'');
-    if(token.includes(',') && token.includes('.')){
-      if(token.lastIndexOf(',') > token.lastIndexOf('.')){
-        token = token.replace(/\./g,'').replace(',', '.');
-      } else {
-        token = token.replace(/,/g,'');
-      }
-    } else {
-      token = token.replace(/\./g, m => m).replace(',', '.');
-      const dots = (token.match(/\./g)||[]).length;
-      if(dots > 1){
-        const parts = token.split('.');
-        const dec = parts.pop();
-        token = parts.join('') + '.' + dec;
-      }
+
+  function euroSuffix(){
+    return settings.showEuro === 'ON' ? ' €' : '';
+  }
+
+  function qtyText(q){
+    return Number.isFinite(q) ? String(q) : "—";
+  }
+
+  function parseMoneyToNumber(token){
+    let t = token.replace(/[^0-9,.-]/g,"").replace(/\s+/g,"").trim();
+    if(!t) return null;
+    const hasComma = t.includes(",");
+    const hasDot = t.includes(".");
+    let cleaned = t;
+    if(hasComma && hasDot){
+      const lc = cleaned.lastIndexOf(",");
+      const ld = cleaned.lastIndexOf(".");
+      if(ld > lc) cleaned = cleaned.replace(/,/g,"");
+      else cleaned = cleaned.replace(/\./g,"").replace(/,/g,".");
+    } else if(hasComma && !hasDot){
+      cleaned = cleaned.replace(/,/g,".");
     }
-    const n = Number(token);
+    const n = Number(cleaned);
     return Number.isFinite(n) ? n : null;
   }
 
-  function extractPeriod(text){
-    const m = text.match(/du\s+(\d{2}\/\d{2}\/\d{4})\s+\d{1,2}:\d{2}:\d{2}\s+au\s+(\d{2}\/\d{2}\/\d{4})\s+\d{1,2}:\d{2}:\d{2}/i);
-    if(!m) return null;
-    return { from:m[1], to:m[2] };
+  function extractHTFromLine(line){
+    const moneyTokens = [...line.matchAll(/(-?\d[\d\s.,]*)(\$|€)/g)].map(m => m[0]);
+    if(moneyTokens.length === 0) return null;
+    const nums = moneyTokens.map(parseMoneyToNumber).filter(v => typeof v === 'number');
+    if(nums.length >= 3) return nums[2];
+    return nums.length ? nums[nums.length - 1] : null;
   }
 
-  function extractPaymentSummary(text){
-    const summary = { cardTotal:0, cashTotal:0, cardCount:0, cashCount:0, source:'calculated' };
-    const cardLine = text.match(/Carte\s+Bancaire\s+(\d+)\s+([\d ]+,\d{2})\s+\d+\s+[\d ]+,\d{2}\s+([\d ]+,\d{2})/i);
-    const cashLine = text.match(/Esp[eè]ces\s+(\d+)\s+([\d ]+,\d{2})\s+\d+\s+[\d ]+,\d{2}\s+([\d ]+,\d{2})/i);
-    if(cardLine){
-      summary.cardCount = Number(cardLine[1]) || 0;
-      summary.cardTotal = parseFrenchAmount(cardLine[3] || cardLine[2]) || 0;
-      summary.source = 'header';
-    }
-    if(cashLine){
-      summary.cashCount = Number(cashLine[1]) || 0;
-      summary.cashTotal = parseFrenchAmount(cashLine[3] || cashLine[2]) || 0;
-      summary.source = 'header';
-    }
-    return summary;
-  }
-
-  function isTicketStart(line){
-    const m = line.match(/^(\d{2}\/\d{2}\/\d{4})\s+(\d{1,2}:\d{2}:\d{2})\s+(.+?)\s+(TIC-\d+-\d+)\s*(.*)$/);
-    if(!m) return null;
-    if(!/\bVente\b/i.test(m[5])) return null;
-    const customer = m[5].replace(/\bVente\b/i,'').trim();
-    return { date:m[1], time:m[2], employee:m[3].trim(), ticket:m[4], customer };
-  }
-
-  function parseTickets(raw){
-    const lines = raw.replace(/\r/g,'').split('\n').map(l=>l.trim()).filter(Boolean);
-    const tickets = [];
-    let i = 0;
-    while(i < lines.length){
-      const start = isTicketStart(lines[i]);
-      if(!start){ i++; continue; }
-      const ticket = {
-        date:start.date, time:start.time, employee:start.employee, ticket:start.ticket, customer:start.customer,
-        items:[], payments:[], total:0, cashGiven:0, change:0, rawBlock:[lines[i]], ticketMix:false
-      };
-      i++;
-      let pendingProduct = null;
-      let pendingPayment = null;
-      function flushProduct(){
-        if(!pendingProduct) return;
-        const compact = pendingProduct.join(' ').replace(/\s+/g,' ').trim();
-        const amount = parseFrenchAmount(compact);
-        let text = compact;
-        if(amount != null){
-          text = compact.replace(new RegExp(String(compact.match(/-?\d{1,3}(?:[ .]\d{3})*(?:,\d{1,2})|-?\d+(?:,\d{1,2})|-?\d+(?:\.\d{1,2})?/g).pop()).replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '$'), '').trim();
-        }
-        text = text.replace(/^([A-Z0-9][A-Z0-9\-]{3,})\s+/, '').trim();
-        let qty = 1;
-        const q = text.match(/x\s*(\d+)$/i);
-        if(q){ qty = Number(q[1]) || 1; text = text.replace(/x\s*\d+$/i,'').trim(); }
-        const item = buildItem(text, amount || 0, qty);
-        ticket.items.push(item);
-        pendingProduct = null;
-      }
-      function flushPayment(){
-        if(!pendingPayment) return;
-        const compact = pendingPayment.join(' ').replace(/\s+/g,' ').trim();
-        const amount = parseFrenchAmount(compact) || 0;
-        let method = 'Autre';
-        if(/carte bancaire/i.test(compact)) method = 'Carte Bancaire';
-        else if(/esp[eè]ces/i.test(compact)) method = 'Espèces';
-        else if(/bon cadeau/i.test(compact)) method = 'Bon cadeau';
-        ticket.payments.push({ method, amount });
-        pendingPayment = null;
-      }
-
-      while(i < lines.length){
-        const line = lines[i];
-        const nextStart = isTicketStart(line);
-        if(nextStart){
-          flushProduct();
-          flushPayment();
-          break;
-        }
-        ticket.rawBlock.push(line);
-        if(/^Total Document\s*:/i.test(line)){
-          flushProduct();
-          flushPayment();
-          ticket.total = parseFrenchAmount(line) || 0;
-          i++;
-          break;
-        }
-        if(/Rendu\s*:/i.test(line)){
-          flushProduct();
-          flushPayment();
-          ticket.change = parseFrenchAmount(line) || 0;
-          i++;
-          continue;
-        }
-        if(/FR Taux|no tax|Taux r[eé]duit/i.test(line)){
-          flushProduct();
-          flushPayment();
-          i++;
-          continue;
-        }
-        if(/Mode de paiement\s*:/i.test(line)){
-          flushProduct();
-          flushPayment();
-          const after = line.split(/Mode de paiement\s*:/i)[1].trim();
-          pendingPayment = after ? [after] : [];
-          i++;
-          while(i < lines.length){
-            const l2 = lines[i];
-            if(isTicketStart(l2) || /^Total Document\s*:/i.test(l2) || /Rendu\s*:/i.test(l2) || /FR Taux|no tax|Taux r[eé]duit/i.test(l2) || /Mode de paiement\s*:/i.test(l2)) break;
-            pendingPayment.push(l2);
-            i++;
-          }
-          flushPayment();
-          continue;
-        }
-
-        const prefixRegex = new RegExp('^\\d{2}\\/\\d{2}\\/\\d{4}\\s+\\d{1,2}:\\d{2}:\\d{2}\\s+.+?\\s+' + ticket.ticket.replace(/[-/\\^$*+?.()|[\]{}]/g,'\\$&') + '\\s*(.*)$');
-        const pm = line.match(prefixRegex);
-        if(pm){
-          flushProduct();
-          const stripped = (pm[1] || '').trim();
-          if(stripped){ pendingProduct = [stripped]; }
-          i++;
-          continue;
-        }
-
-        if(pendingProduct){
-          pendingProduct.push(line);
-          i++;
-          continue;
-        }
-        i++;
-      }
-
-      if(!ticket.total){
-        ticket.total = round2(ticket.items.reduce((a,b)=>a+b.amount,0));
-      }
-      if(ticket.payments.length > 1 || (ticket.payments[0] && ticket.payments[0].method === 'Espèces' && ticket.change > 0)) ticket.ticketMix = ticket.payments.length > 1;
-      allocatePaymentsToItems(ticket);
-      tickets.push(ticket);
-    }
-    return tickets;
-  }
-
-  function buildItem(name, amount, qty){
-    const n = normalize(name);
-    const tcgLicense = detectTCGLicense(n);
-    let category = 'board';
-    let sub = 'Jeux de société';
-    if(tcgLicense || hasAny(n, TCG_PRODUCT_PATTERNS)){
-      category = 'tcg';
-      sub = tcgLicense ? tcgLicense.label : 'Autre TCG';
-    } else if(hasAny(n, ACCESSORY_PATTERNS)){
-      category = 'accessories';
-      sub = 'Accessoires';
-    } else if(hasAny(n, PUZZLE_PATTERNS)){
-      category = 'puzzle';
-      sub = 'Casse-tête & Puzzle';
-    }
-    return { name:name || 'Article non identifié', amount:round2(amount||0), qty:qty||1, category, subcategory:sub, paymentBreakdown:[] };
-  }
-
-  function hasAny(n, patterns){ return patterns.some(p => n.includes(normalize(p))); }
-  function detectTCGLicense(n){
-    for(const lic of TCG_LICENSES){
-      if(lic.patterns.some(p => n.includes(normalize(p)))) return lic;
+  function extractQtyFromLine(line){
+    const parts = line.split("\t").map(p=>p.trim());
+    if(parts.length >= 4){
+      const raw = parts[3];
+      if(raw === "" || raw == null) return null;
+      const q = Number(String(raw).replace(',','.'));
+      return Number.isFinite(q) ? q : null;
     }
     return null;
   }
-  function round2(v){ return Math.round((Number(v)||0) * 100) / 100; }
 
-  function allocatePaymentsToItems(ticket){
-    const total = ticket.total || ticket.items.reduce((a,b)=>a+b.amount,0);
-    let payments = ticket.payments.map(p=>({...p}));
-    if(!payments.length && total){ payments = [{ method:'Inconnu', amount:total }]; }
-    if(payments.length === 1 && payments[0].method === 'Espèces' && ticket.change > 0){
-      payments[0].cashGiven = payments[0].amount;
-      payments[0].amount = round2(payments[0].amount - ticket.change);
-    }
-    const effective = payments.map(p => ({...p, amount: round2(p.amount)}));
-    let remaining = effective.map(p=>p.amount);
-    const totalItems = ticket.items.reduce((a,b)=>a+b.amount,0) || total || 1;
-    ticket.items.forEach((item, idx) => {
-      let value = item.amount;
-      const itemParts = [];
-      if(idx === ticket.items.length - 1){
-        effective.forEach((p, j) => { if(remaining[j] > 0.0001) itemParts.push({ method:p.method, amount:round2(remaining[j]) }); });
-      } else if(effective.length === 1){
-        itemParts.push({ method:effective[0].method, amount:round2(value) });
-        remaining[0] = round2(remaining[0] - value);
-      } else {
-        effective.forEach((p,j) => {
-          const share = round2((value / totalItems) * p.amount);
-          const used = Math.min(share, remaining[j]);
-          if(used > 0) itemParts.push({ method:p.method, amount:round2(used) });
-          remaining[j] = round2(remaining[j] - used);
-        });
-      }
-      item.paymentBreakdown = itemParts.filter(p=>p.amount > 0.0001);
-    });
-    ticket.payments = effective;
+  function extractCategoryName(line){
+    const parts = line.split("\t").map(p=>p.trim()).filter(Boolean);
+    if(parts.length >= 3) return parts[2];
+    return line.replace(/^LGDJ\s+(Gambetta|Pigalle)\s*/i,"").slice(0,120).trim();
   }
 
-  function buildDerived(tickets){
-    const lines = [];
-    const totals = { tcg:0, accessories:0, puzzle:0, board:0, card:0, cash:0, total:0, cardCount:0, cashCount:0, mixedTickets:0 };
-    const subTotals = {};
-    let tcgTicketEq = 0, boardTicketEq = 0;
+  function detectBoutique(lineNorm){
+    for(const b of BOUTIQUES){
+      if(b.needles.some(n => lineNorm.includes(n))) return b.key;
+    }
+    return null;
+  }
 
-    tickets.forEach(ticket => {
-      const ticketTotal = ticket.total || ticket.items.reduce((a,b)=>a+b.amount,0);
-      totals.total += ticketTotal;
-      const ticketCat = { tcg:0, board:0, accessories:0, puzzle:0 };
+  function hasAny(catNorm, arr){
+    return arr.some(k => catNorm.includes(normalize(k)));
+  }
 
-      ticket.items.forEach(item => {
-        lines.push({ ticket:ticket.ticket, date:ticket.date, time:ticket.time, employee:ticket.employee, customer:ticket.customer, ...item });
-        totals[item.category] += item.amount;
-        ticketCat[item.category] += item.amount;
-        subTotals[item.subcategory] = round2((subTotals[item.subcategory] || 0) + item.amount);
-      });
+  function isDeletedCategoryLike(rawLine, catName){
+    const ln = normalize(rawLine || "");
+    const cn = normalize(catName || "");
+    if(ln.includes("categorie supprimee") || ln.includes("catégorie supprimée")) return true;
+    if(cn.includes("categorie supprimee") || cn.includes("catégorie supprimée")) return true;
+    if(ln.includes("categorie supprime") || ln.includes("catégorie supprim")) return true;
+    if(cn.includes("categorie supprime") || cn.includes("catégorie supprim")) return true;
+    return false;
+  }
 
-      ticket.payments.forEach(p => {
-        if(p.method === 'Carte Bancaire'){ totals.card += p.amount; totals.cardCount += 1; }
-        else if(p.method === 'Espèces'){ totals.cash += p.amount; totals.cashCount += 1; }
-      });
-      if(ticket.payments.length > 1) totals.mixedTickets += 1;
+  function detectLicense(catRaw){
+    const catNorm = normalize(catRaw);
+    for(const lic of TCG_LICENSES){
+      const n = normalize(lic);
+      if(n && catNorm.includes(n)) return n;
+    }
+    for(const rule of LICENSE_PATTERN_RULES){
+      if(rule.re.test(catRaw||"")) return normalize(rule.lic);
+    }
+    return null;
+  }
 
-      if(ticketTotal > 0){
-        tcgTicketEq += (ticketCat.tcg / ticketTotal);
-        boardTicketEq += ((ticketCat.board + ticketCat.accessories + ticketCat.puzzle) / ticketTotal);
+  function prettyLicense(licNorm){
+    const t = normalize(licNorm);
+    for(const s of TCG_LICENSES){
+      if(normalize(s) === t) return s;
+    }
+    return licNorm;
+  }
+
+  function isAccessoryWord(catNorm){
+    return /\baccessoires?\b/i.test(catNorm) || /\baccessories?\b/i.test(catNorm);
+  }
+
+  function isKids(catNorm){
+    if(catNorm.includes("defis nature") || catNorm.includes("défis nature")) return true;
+    if(catNorm.includes("jeux enfants")) return true;
+    return /jeux\s*\d+\s*ans/.test(catNorm);
+  }
+
+  function stripEventPrefix(cat){
+    const s = (cat||"").toString().trim();
+    const sn = normalize(s);
+    if(!hasAny(sn, EVENT_KEYWORDS)) return s;
+    return s.replace(/^\s*év?e?n?e?m?e?n?t?s?\s*[:\-–—]?\s*/i,'').trim();
+  }
+
+  function getVar(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function setThemeForBoutique(activeKey, two){
+    const root = document.documentElement;
+    if(two || activeKey === 'GLOBAL'){
+      root.style.setProperty('--accent', '#22c55e');
+      root.style.setProperty('--accent2', '#86efac');
+      root.style.setProperty('--accentGlow', 'rgba(34,197,94,.18)');
+      root.style.setProperty('--pieBase', '#22c55e');
+      return;
+    }
+    if(activeKey === 'GAMBETTA'){
+      root.style.setProperty('--accent', '#f59e0b');
+      root.style.setProperty('--accent2', '#fdba74');
+      root.style.setProperty('--accentGlow', 'rgba(245,158,11,.20)');
+      root.style.setProperty('--pieBase', '#f59e0b');
+      return;
+    }
+    root.style.setProperty('--accent', '#60a5fa');
+    root.style.setProperty('--accent2', '#93c5fd');
+    root.style.setProperty('--accentGlow', 'rgba(96,165,250,.18)');
+    root.style.setProperty('--pieBase', '#60a5fa');
+  }
+
+  function parseFrDate(s){
+    const m = (s||"").match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if(!m) return null;
+    const d = Number(m[1]), mo = Number(m[2])-1, y = Number(m[3]);
+    const dt = new Date(y, mo, d);
+    return Number.isFinite(dt.getTime()) ? dt : null;
+  }
+  function fmtFr(dt){
+    const dd = String(dt.getDate()).padStart(2,'0');
+    const mm = String(dt.getMonth()+1).padStart(2,'0');
+    const yy = dt.getFullYear();
+    return `${dd}/${mm}/${yy}`;
+  }
+  function daysDiff(a,b){
+    const A = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
+    const B = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
+    return Math.round((B-A)/(24*3600*1000));
+  }
+  function weekdayFr(dt){
+    return ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"][dt.getDay()];
+  }
+  function dateLabel(fromDt, toDt){
+    if(!fromDt || !toDt) return "";
+    const same = fmtFr(fromDt) === fmtFr(toDt);
+    if(!same) return `du ${fmtFr(fromDt)} au ${fmtFr(toDt)}`;
+    const today = new Date();
+    const delta = daysDiff(toDt, today);
+    if(delta === 0) return `${fmtFr(toDt)} (aujourd'hui)`;
+    if(delta === 1) return `${fmtFr(toDt)} (hier)`;
+    if(delta >= 2 && delta <= 7) return `${fmtFr(toDt)} (${weekdayFr(toDt)})`;
+    return fmtFr(toDt);
+  }
+  function extractDateRange(raw){
+    const m = raw.match(/Date de la commande\s*:\s*du\s*(\d{2}\/\d{2}\/\d{4})\s*au\s*(\d{2}\/\d{2}\/\d{4})/i);
+    if(!m) return { from:null, to:null };
+    return { from: parseFrDate(m[1]), to: parseFrDate(m[2]) };
+  }
+
+  function classify(catName, rawLine){
+    const catRaw = (catName||"").toString();
+    const catNorm = normalize(catRaw);
+
+    if(isDeletedCategoryLike(rawLine, catRaw)){
+      return { top: TOP.AUTRE, sub: TOP.AUTRE_DELETED, license:null, leafDeleted: catRaw, why: ["Catégorie supprimée détectée (robuste)"] };
+    }
+
+    if(hasAny(catNorm, OTHER_FORCE)){
+      return { top: TOP.AUTRE, sub: catRaw, license:null, why: ["Forcé Autre (acompte/réservation/accueil/carte cadeau)"] };
+    }
+
+    if(catNorm.includes("jeux de dessin")){
+      return { top: TOP.JEUX, sub: catRaw, license:null, why: ["Forcé Jeux de société (Jeux de Dessin)"] };
+    }
+
+    if(hasAny(catNorm, ESCAPE_GAME_KEYWORDS) && catNorm.includes("escape game")){
+      return { top: TOP.ESC, sub: catRaw, license:null, why: ["Escape Game détecté"] };
+    }
+
+    const isEvt = hasAny(catNorm, EVENT_KEYWORDS);
+    if(isEvt && settings.eventsStandalone === 'YES'){
+      return { top: TOP.EVT, sub: catRaw, license:null, why: ["Événement (standalone=OUI)"] };
+    }
+
+    let catForClass = catRaw;
+    let whyEventDist = null;
+    if(isEvt && settings.eventsStandalone !== 'YES'){
+      const stripped = stripEventPrefix(catRaw);
+      catForClass = stripped || catRaw;
+      whyEventDist = `Événement réparti (standalone=NON) → "${catForClass}"`;
+    }
+
+    const catForNorm = normalize(catForClass);
+
+    if(isKids(catForNorm)){
+      return { top: TOP.JEUX, sub: TOP.JEUX_ENFANTS, license:null, leafKids: catForClass, why: [whyEventDist, "Jeux enfants (Jeux X ans / Défis Nature)"].filter(Boolean) };
+    }
+
+    if(hasAny(catForNorm, JDR_KEYWORDS)){
+      if(settings.jdrStandalone === 'YES'){
+        return { top: TOP.JDR, sub: catForClass, license:null, why: [whyEventDist, "JDR détecté (standalone=OUI)"].filter(Boolean) };
       }
-    });
+      return { top: TOP.JEUX, sub: catForClass, license:null, why: [whyEventDist, "JDR intégré à Jeux de société (standalone=NON)"].filter(Boolean) };
+    }
 
+    const mergePC = settings.mergePuzzleCasse === 'YES';
+
+    if(hasAny(catForNorm, CASSE_KEYWORDS)){
+      const top = mergePC ? TOP.PUZCASSE : TOP.CASSE;
+      return { top, sub: catForClass, license:null, why: [whyEventDist, mergePC ? "Casse-tête → Puzzles & Casse-tête (merge=OUI)" : "Casse-tête détecté"].filter(Boolean) };
+    }
+    if(hasAny(catForNorm, PUZZLE_KEYWORDS)){
+      const top = mergePC ? TOP.PUZCASSE : TOP.PUZ;
+      return { top, sub: catForClass, license:null, why: [whyEventDist, mergePC ? "Puzzle → Puzzles & Casse-tête (merge=OUI)" : "Puzzle détecté"].filter(Boolean) };
+    }
+
+    const lic = detectLicense(catForClass);
+    if(lic){
+      const isTcgAccessoryStrict = catForNorm.startsWith("accessoires :") || catForNorm.startsWith("accessoire :");
+      const isTcgAccessoryText = isTcgAccessoryStrict || isAccessoryWord(catForNorm);
+
+      if(isTcgAccessoryText && settings.tcgAccessoriesInTcg === 'YES'){
+        return { top: TOP.TCG, sub: catForClass, license: lic, why: [whyEventDist, "TCG + Accessoires TCG → dans TCG (toggle=OUI)"].filter(Boolean) };
+      }
+      if(settings.tcgAccessoriesInTcg !== 'YES' && isTcgAccessoryStrict){
+        return { top: TOP.ACC, sub: catForClass, license: null, why: [whyEventDist, "Accessoires : X → Accessoires (toggle=NON)"].filter(Boolean) };
+      }
+      return { top: TOP.TCG, sub: catForClass, license: lic, why: [whyEventDist, "TCG détecté"].filter(Boolean) };
+    }
+
+    if(hasAny(catForNorm, ACCESSORY_KEYWORDS) || isAccessoryWord(catForNorm)){
+      return { top: TOP.ACC, sub: catForClass, license:null, why: [whyEventDist, "Accessoires détecté"].filter(Boolean) };
+    }
+
+    return { top: TOP.JEUX, sub: catForClass, license:null, why: [whyEventDist, "Défaut → Jeux de société"].filter(Boolean) };
+  }
+
+  function buildTrace(cat, rawLine, cls){
+    const cN = normalize(cat);
+    const parts = [];
+
+    const deleted = isDeletedCategoryLike(rawLine, cat);
+    parts.push(`Deleted=${deleted?'OUI':'NON'}`);
+
+    const forcedOther = hasAny(cN, OTHER_FORCE);
+    parts.push(`ForcedAutre=${forcedOther?'OUI':'NON'}`);
+
+    const forcedJds = cN.includes("jeux de dessin");
+    parts.push(`ForceJDS=${forcedJds?'OUI':'NON'}`);
+
+    const isEvt = hasAny(cN, EVENT_KEYWORDS);
+    parts.push(`Event=${isEvt?'OUI':'NON'} (standalone=${settings.eventsStandalone})`);
+
+    const lic = detectLicense(cat);
+    parts.push(`TCGLic=${lic ? prettyLicense(lic) : '—'}`);
+
+    const accStrict = cN.startsWith("accessoires :") || cN.startsWith("accessoire :");
+    parts.push(`AccStrict=${accStrict?'OUI':'NON'} (tcgAccInTcg=${settings.tcgAccessoriesInTcg})`);
+
+    const jdr = hasAny(cN, JDR_KEYWORDS);
+    parts.push(`JDR=${jdr?'OUI':'NON'} (standalone=${settings.jdrStandalone})`);
+
+    const mergePC = settings.mergePuzzleCasse;
+    const isPuz = hasAny(cN, PUZZLE_KEYWORDS);
+    const isCasse = hasAny(cN, CASSE_KEYWORDS);
+    parts.push(`Puzzle=${isPuz?'OUI':'NON'} Casse=${isCasse?'OUI':'NON'} (merge=${mergePC})`);
+
+    const acc = hasAny(cN, ACCESSORY_KEYWORDS) || isAccessoryWord(cN);
+    parts.push(`Accessoires=${acc?'OUI':'NON'}`);
+
+    const kids = isKids(cN);
+    parts.push(`Kids=${kids?'OUI':'NON'}`);
+
+    parts.push(`=> TOP="${cls.top}" SUB="${cls.sub}"`);
+    return parts.join(" → ");
+  }
+
+  function makeBucket(){
     return {
-      lines,
-      totals: mapRound(totals),
-      subTotals,
-      avgTotal: tickets.length ? round2(totals.total / tickets.length) : 0,
-      avgTCG: tcgTicketEq ? round2(totals.tcg / tcgTicketEq) : 0,
-      avgBoard: boardTicketEq ? round2((totals.board + totals.accessories + totals.puzzle) / boardTicketEq) : 0,
-      tcgTicketEq: round2(tcgTicketEq),
-      boardTicketEq: round2(boardTicketEq)
+      totalsHT: new Map(),
+      totalsQty: new Map(),
+      sub: new Map(),
+      total: 0,
+      totalQty: 0,
+      tcg: { licenses: new Map(), seriesByLicense: new Map() },
+      kidsLeaves: new Map(),
+      deletedLeaves: new Map(),
     };
   }
 
-  function mapRound(obj){
-    const out = {};
-    for(const k in obj) out[k] = typeof obj[k] === 'number' ? round2(obj[k]) : obj[k];
-    return out;
+  function bumpMap(map, key, add){
+    map.set(key, (map.get(key) || 0) + add);
   }
 
-  function render(appData){
-    const { tickets, derived, paymentHeader, period } = appData;
-    state.tickets = tickets;
-    state.lines = derived.lines;
-    state.summary = appData;
-
-    const cbTotal = paymentHeader.cardTotal || derived.totals.card;
-    const cashTotal = paymentHeader.cashTotal || derived.totals.cash;
-    const cbCount = paymentHeader.cardCount || derived.totals.cardCount;
-    const cashCount = paymentHeader.cashCount || derived.totals.cashCount;
-
-    $('cbTotal').textContent = fmtEUR(cbTotal);
-    $('cbCount').textContent = `${cbCount} transaction${cbCount > 1 ? 's' : ''}`;
-    $('cashTotal').textContent = fmtEUR(cashTotal);
-    $('cashCount').textContent = `${cashCount} transaction${cashCount > 1 ? 's' : ''}`;
-    $('ticketCount').textContent = String(tickets.length);
-    $('grandTotal').textContent = fmtEUR(derived.totals.total);
-    $('mixedCount').textContent = `${derived.totals.mixedTickets} ticket${derived.totals.mixedTickets > 1 ? 's' : ''} mixte${derived.totals.mixedTickets > 1 ? 's' : ''}`;
-    $('periodText').textContent = period ? `${period.from} → ${period.to}` : 'Période non détectée';
-    $('tcgBig').textContent = fmtEUR(derived.totals.tcg);
-    $('boardBig').textContent = fmtEUR(derived.totals.board + derived.totals.accessories + derived.totals.puzzle);
-    $('avgTotal').textContent = fmtEUR(derived.avgTotal);
-    $('avgTCG').textContent = fmtEUR(derived.avgTCG);
-    $('avgBoard').textContent = fmtEUR(derived.avgBoard);
-    $('avgTCGMeta').textContent = `Équiv. tickets TCG : ${derived.tcgTicketEq.toLocaleString('fr-FR',{maximumFractionDigits:2})}`;
-    $('avgBoardMeta').textContent = `Équiv. tickets hors TCG : ${derived.boardTicketEq.toLocaleString('fr-FR',{maximumFractionDigits:2})}`;
-
-    renderPie(derived.totals);
-    renderCategoryButtons(derived, tickets);
-    renderCategoryDetail(state.selectedCategory, derived, tickets);
-    renderTicketsTable(tickets, $('ticketFilter').value || '');
-    updateManualGap();
+  function addToSub(bucket, topKey, subKey, ht, qty){
+    if(!bucket.sub.has(topKey)) bucket.sub.set(topKey, new Map());
+    const m = bucket.sub.get(topKey);
+    if(!m.has(subKey)) m.set(subKey, { value:0, qty:0, hasQty:false });
+    const cur = m.get(subKey);
+    cur.value += ht;
+    if(qty != null && Number.isFinite(qty)){ cur.qty += qty; cur.hasQty = true; }
   }
 
-  function renderPie(totals){
-    const data = [
-      { key:'tcg', label:'TCG', value:totals.tcg, color:getCSS('--tcg') },
-      { key:'accessories', label:'Accessoires', value:totals.accessories, color:getCSS('--acc') },
-      { key:'puzzle', label:'Casse-tête & Puzzle', value:totals.puzzle, color:getCSS('--puzzle') },
-      { key:'board', label:'Jeux de société', value:totals.board, color:getCSS('--board') }
-    ].filter(d => d.value > 0);
-    const total = data.reduce((a,b)=>a+b.value,0) || 1;
-    const cx = 160, cy = 160, r = 110, rInner = 64;
-    let angle = -Math.PI/2;
-    const paths = data.map(d => {
-      const slice = (d.value / total) * Math.PI * 2;
+  function addToTcg(bucket, licNorm, seriesName, ht, qty){
+    if(!bucket.tcg.licenses.has(licNorm)) bucket.tcg.licenses.set(licNorm, { value:0, qty:0, hasQty:false });
+    const lic = bucket.tcg.licenses.get(licNorm);
+    lic.value += ht;
+    if(qty != null && Number.isFinite(qty)){ lic.qty += qty; lic.hasQty = true; }
+
+    if(!bucket.tcg.seriesByLicense.has(licNorm)) bucket.tcg.seriesByLicense.set(licNorm, new Map());
+    const sm = bucket.tcg.seriesByLicense.get(licNorm);
+    if(!sm.has(seriesName)) sm.set(seriesName, { value:0, qty:0, hasQty:false });
+    const s = sm.get(seriesName);
+    s.value += ht;
+    if(qty != null && Number.isFinite(qty)){ s.qty += qty; s.hasQty = true; }
+  }
+
+  function addKidsLeaf(bucket, leafName, ht, qty){
+    if(!bucket.kidsLeaves.has(leafName)) bucket.kidsLeaves.set(leafName, { value:0, qty:0, hasQty:false });
+    const cur = bucket.kidsLeaves.get(leafName);
+    cur.value += ht;
+    if(qty != null && Number.isFinite(qty)){ cur.qty += qty; cur.hasQty = true; }
+  }
+
+  function addDeletedLeaf(bucket, leafName, ht, qty){
+    const k = (leafName && String(leafName).trim()) ? String(leafName).trim() : "Catégorie supprimée";
+    if(!bucket.deletedLeaves.has(k)) bucket.deletedLeaves.set(k, { value:0, qty:0, hasQty:false });
+    const cur = bucket.deletedLeaves.get(k);
+    cur.value += ht;
+    if(qty != null && Number.isFinite(qty)){ cur.qty += qty; cur.hasQty = true; }
+  }
+
+  function addRow(bucket, r){
+    bucket.total += r.ht;
+    if(r.qty != null && Number.isFinite(r.qty)) bucket.totalQty += r.qty;
+
+    bumpMap(bucket.totalsHT, r.top, r.ht);
+    if(r.qty != null && Number.isFinite(r.qty)) bumpMap(bucket.totalsQty, r.top, r.qty);
+
+    addToSub(bucket, r.top, r.sub, r.ht, r.qty);
+
+    if(r.top === TOP.TCG && r.license) addToTcg(bucket, r.license, r.sub, r.ht, r.qty);
+
+    if(r.top === TOP.JEUX && r.sub === TOP.JEUX_ENFANTS && r.leafKids){
+      addKidsLeaf(bucket, r.leafKids, r.ht, r.qty);
+    }
+
+    if(r.top === TOP.AUTRE && r.sub === TOP.AUTRE_DELETED){
+      addDeletedLeaf(bucket, r.leafDeleted || r.category, r.ht, r.qty);
+    }
+  }
+
+  // ── MODIFIÉ : hors TCG + Escape Game + Événement ──────────────────────────
+  function calcSansExclus(bucket){
+    const tcg = bucket.totalsHT.get(TOP.TCG) || 0;
+    const esc = bucket.totalsHT.get(TOP.ESC) || 0;
+    const evt = bucket.totalsHT.get(TOP.EVT) || 0;
+    return bucket.total - tcg - esc - evt;
+  }
+
+  function buildTopOrder(){
+    const mergePC = settings.mergePuzzleCasse === 'YES';
+    const order = [
+      TOP.JEUX,
+      TOP.TCG,
+      (settings.jdrStandalone === 'YES') ? TOP.JDR : null,
+      TOP.ACC,
+      mergePC ? TOP.PUZCASSE : TOP.PUZ,
+      mergePC ? null : TOP.CASSE,
+      (settings.eventsStandalone === 'YES') ? TOP.EVT : null,
+      TOP.ESC,
+      TOP.AUTRE
+    ].filter(Boolean);
+
+    return [...new Set(order)];
+  }
+
+  function currentBucket(){
+    if(!parsed) return null;
+    if(parsed.activeKey === 'GLOBAL') return parsed.global;
+    return parsed.byBoutique[parsed.activeKey];
+  }
+
+  function hexToRgb(hex){
+    const h = hex.replace('#','').trim();
+    const full = h.length===3 ? h.split('').map(c=>c+c).join('') : h;
+    const n = parseInt(full, 16);
+    return { r: (n>>16)&255, g: (n>>8)&255, b: n&255 };
+  }
+  function rgbToHex(r,g,b){
+    const to = (x)=> x.toString(16).padStart(2,'0');
+    return `#${to(r)}${to(g)}${to(b)}`;
+  }
+  function mix(a,b,t){ return Math.round(a + (b-a)*t); }
+  function shadeHex(baseHex, t){
+    const base = hexToRgb(baseHex);
+    const dark = { r: 20, g: 30, b: 55 };
+    const light = { r: 235, g: 242, b: 255 };
+    if(t < 0.5){
+      const tt = t/0.5;
+      return rgbToHex(mix(dark.r, base.r, tt), mix(dark.g, base.g, tt), mix(dark.b, base.b, tt));
+    } else {
+      const tt = (t-0.5)/0.5;
+      return rgbToHex(mix(base.r, light.r, tt), mix(base.g, light.g, tt), mix(base.b, light.b, tt));
+    }
+  }
+  function polarToCartesian(cx, cy, r, angle){
+    const rad = (angle - 90) * Math.PI / 180.0;
+    return { x: cx + (r * Math.cos(rad)), y: cy + (r * Math.sin(rad)) };
+  }
+  function arcPath(cx, cy, r, startAngle, endAngle){
+    const start = polarToCartesian(cx, cy, r, endAngle);
+    const end = polarToCartesian(cx, cy, r, startAngle);
+    const largeArc = endAngle - startAngle <= 180 ? 0 : 1;
+    return ['M', cx, cy,'L', start.x, start.y,'A', r, r, 0, largeArc, 0, end.x, end.y,'Z'].join(' ');
+  }
+
+  function renderComboPieAndList(data, title, rightMeta, onPick, devPayloadBuilder){
+    const total = data.reduce((a,b)=>a + (b.value||0), 0);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'combo dyn';
+    if(settings.devMode === 'ON') wrap.classList.add('dev-on');
+
+    const hd = document.createElement('div');
+    hd.className = 'comboHd';
+    hd.innerHTML = `
+      <div class="comboTitle"><span>${escapeHtml(title)}</span></div>
+      <div class="comboMeta">${escapeHtml(rightMeta||"")}</div>
+    `;
+    wrap.appendChild(hd);
+
+    const bd = document.createElement('div');
+    bd.className = 'comboBd';
+
+    const size = 200;
+    const cx = size/2;
+    const cy = size/2;
+    const r = 88;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('width', String(size));
+    svg.setAttribute('height', String(size));
+    svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    bg.setAttribute('cx', cx);
+    bg.setAttribute('cy', cy);
+    bg.setAttribute('r', r);
+    bg.setAttribute('fill', getVar('--panel2'));
+    bg.setAttribute('stroke', getVar('--line'));
+    bg.setAttribute('stroke-width', '1');
+    svg.appendChild(bg);
+
+    const base = getVar('--pieBase') || '#60a5fa';
+    const items = data.filter(d => d.value > 0);
+
+    let angle = 0;
+    items.forEach((d, i) => {
+      const slice = total > 0 ? (d.value / total) * 360 : 0;
       const start = angle;
       const end = angle + slice;
       angle = end;
-      return donutPath(cx,cy,r,rInner,start,end,d.color);
-    }).join('');
-    const center = `<text x="160" y="150" text-anchor="middle" fill="#dfe8f4" font-size="16" font-weight="700">CA total</text><text x="160" y="176" text-anchor="middle" fill="#fff" font-size="22" font-weight="800">${esc(fmtEUR(total))}</text>`;
-    $('pieSvg').innerHTML = `<rect x="0" y="0" width="320" height="320" fill="transparent"></rect>${paths}${center}`;
+
+      const t = items.length <= 1 ? 0.6 : (0.25 + (i/(items.length-1))*0.6);
+      const color = shadeHex(base, t);
+      d._color = color;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', arcPath(cx, cy, r, start, end));
+      path.setAttribute('fill', color);
+      path.setAttribute('stroke', 'rgba(0,0,0,.12)');
+      path.setAttribute('stroke-width', '1');
+      path.classList.add('slice');
+      path.dataset.key = d.key;
+
+      path.addEventListener('mouseenter', ()=>highlightLegend(d.key, true));
+      path.addEventListener('mouseleave', ()=>highlightLegend(d.key, false));
+
+      if(onPick) path.addEventListener('click', () => onPick(d));
+      svg.appendChild(path);
+    });
+
+    const hole = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    hole.setAttribute('cx', cx);
+    hole.setAttribute('cy', cy);
+    hole.setAttribute('r', 50);
+    hole.setAttribute('fill', getVar('--bg0'));
+    hole.setAttribute('stroke', getVar('--line'));
+    hole.setAttribute('stroke-width', '1');
+    svg.appendChild(hole);
+
+    const t1 = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t1.setAttribute('x', cx);
+    t1.setAttribute('y', cy - 4);
+    t1.setAttribute('text-anchor','middle');
+    t1.setAttribute('fill', getVar('--text'));
+    t1.setAttribute('font-size','13');
+    t1.setAttribute('font-weight','900');
+    t1.textContent = formatEUR(total);
+    svg.appendChild(t1);
+
+    const t2 = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t2.setAttribute('x', cx);
+    t2.setAttribute('y', cy + 16);
+    t2.setAttribute('text-anchor','middle');
+    t2.setAttribute('fill', getVar('--muted'));
+    t2.setAttribute('font-size','10');
+    t2.setAttribute('font-weight','800');
+    t2.textContent = settings.showEuro === 'ON' ? "€ HT" : "HT";
+    svg.appendChild(t2);
+
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+
+    items.slice().sort((a,b)=>b.value-a.value).forEach(d=>{
+      const pct = total > 0 ? (d.value/total*100) : 0;
+      const row = document.createElement('div');
+      row.className = 'legRow';
+      row.dataset.key = d.key;
+
+      const rawVal = Number.isFinite(d.value) ? d.value.toFixed(2).replace('.', ',') : '';
+      row.innerHTML = `
+        <div class="legL">
+          <span class="sw" style="background:${d._color}"></span>
+          <span class="legName copyable" data-raw-value="${escapeHtml(d.name)}" title="Cliquer pour copier le nom">${escapeHtml(d.name)}</span>
+        </div>
+        <div class="legR">
+          <div class="legVal">
+            <span class="copyable" data-raw-value="${rawVal}" title="Cliquer pour copier le montant">${formatEUR(d.value)}${euroSuffix()} <span style="color:${getVar('--muted')};font-weight:800">(${pct.toFixed(1)}%)</span></span>
+            ${settings.showQty==='ON' ? `<span class="qtyMini">Qt\u00e9: ${qtyText(d.qty)}</span>` : ``}
+          </div>
+          <button class="eyeBtn" type="button" title="Voir le d\u00e9tail DEV" aria-label="Voir le d\u00e9tail DEV">&#128065;</button>
+        </div>
+      `;
+
+      // Attach copy-on-click to name and value spans
+      const nameSpan = row.querySelector('.legName.copyable');
+      if(nameSpan) makeCopyable(nameSpan);
+      const valSpan = row.querySelector('.legVal .copyable');
+      if(valSpan) makeCopyable(valSpan);
+
+      row.addEventListener('mouseenter', ()=>highlightSlice(d.key, true));
+      row.addEventListener('mouseleave', ()=>highlightSlice(d.key, false));
+
+      if(onPick) {
+        row.addEventListener('click', (e)=>{
+          const eye = e.target.closest('.eyeBtn');
+          const cp = e.target.closest('.copyable');
+          if(eye || cp) return;
+          onPick(d);
+        });
+      }
+
+      if(settings.devMode === 'ON' && devPayloadBuilder){
+        const eyeBtn = row.querySelector('.eyeBtn');
+        eyeBtn.addEventListener('click', (e)=>{
+          e.preventDefault();
+          e.stopPropagation();
+          openDevDetails(devPayloadBuilder(d));
+        });
+      }
+
+      legend.appendChild(row);
+    });
+
+    bd.appendChild(svg);
+    bd.appendChild(legend);
+    wrap.appendChild(bd);
+    return wrap;
   }
 
-  function donutPath(cx,cy,r,r0,start,end,color){
-    const large = end - start > Math.PI ? 1 : 0;
-    const x1 = cx + Math.cos(start) * r;
-    const y1 = cy + Math.sin(start) * r;
-    const x2 = cx + Math.cos(end) * r;
-    const y2 = cy + Math.sin(end) * r;
-    const x3 = cx + Math.cos(end) * r0;
-    const y3 = cy + Math.sin(end) * r0;
-    const x4 = cx + Math.cos(start) * r0;
-    const y4 = cy + Math.sin(start) * r0;
-    const d = [`M ${x1} ${y1}`, `A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`, `L ${x3} ${y3}`, `A ${r0} ${r0} 0 ${large} 0 ${x4} ${y4}`, 'Z'].join(' ');
-    return `<path d="${d}" fill="${color}" stroke="#10141b" stroke-width="2"></path>`;
+  function highlightLegend(key, on){
+    const legend = document.querySelector('.legend');
+    if(!legend) return;
+    const row = legend.querySelector(`.legRow[data-key="${CSS.escape(key)}"]`);
+    if(!row) return;
+    row.classList.toggle('hi', on);
+    if(on){
+      row.scrollIntoView({block:'nearest', inline:'nearest'});
+    }
   }
 
-  function renderCategoryButtons(derived, tickets){
-    const defs = [
-      { key:'tcg', total:derived.totals.tcg, extra:`${countItems('tcg')} ligne${countItems('tcg')>1?'s':''}` },
-      { key:'accessories', total:derived.totals.accessories, extra:`${countItems('accessories')} ligne${countItems('accessories')>1?'s':''}` },
-      { key:'puzzle', total:derived.totals.puzzle, extra:`${countItems('puzzle')} ligne${countItems('puzzle')>1?'s':''}` },
-      { key:'board', total:derived.totals.board, extra:`${countItems('board')} ligne${countItems('board')>1?'s':''}` }
-    ];
-    $('categoryButtons').innerHTML = defs.map(d => {
-      const info = CATEGORY_INFO[d.key];
-      return `<button data-cat="${d.key}" class="${state.selectedCategory===d.key?'active':''}"><span class="dot" style="background:${info.color}"></span><span><strong>${info.label}</strong><br><span class="muted small">${esc(d.extra)}</span></span><strong>${esc(fmtEUR(d.total))}</strong></button>`;
-    }).join('');
-    $('categoryButtons').querySelectorAll('button[data-cat]').forEach(btn => {
-      btn.onclick = () => { state.selectedCategory = btn.dataset.cat; renderCategoryDetail(state.selectedCategory, derived, tickets); renderCategoryButtons(derived, tickets); };
+  function highlightSlice(key, on){
+    const path = document.querySelector(`.slice[data-key="${CSS.escape(key)}"]`);
+    if(!path) return;
+    path.classList.toggle('hi', on);
+  }
+
+  function snapshotSettings(){
+    return JSON.stringify({
+      showQty: settings.showQty,
+      showEuro: settings.showEuro,
+      eventsStandalone: settings.eventsStandalone,
+      jdrStandalone: settings.jdrStandalone,
+      mergePuzzleCasse: settings.mergePuzzleCasse,
+      tcgAccessoriesInTcg: settings.tcgAccessoriesInTcg,
+      devMode: settings.devMode,
     });
   }
 
-  function countItems(cat){ return state.lines.filter(l => l.category === cat).length; }
+  function computeDiffText(beforeSnap, afterSnap, sampleRows){
+    try{
+      const before = JSON.parse(beforeSnap);
+      const after = JSON.parse(afterSnap);
+      if(!sampleRows || sampleRows.length === 0) return "—";
 
-  function renderCategoryDetail(cat, derived, tickets){
-    const info = CATEGORY_INFO[cat];
-    const items = state.lines.filter(l => l.category === cat).sort((a,b)=>b.amount-a.amount);
-    const total = items.reduce((a,b)=>a+b.amount,0);
-    let subtitle = '';
-    if(cat === 'tcg'){
-      const subRows = Object.entries(derived.subTotals).filter(([k]) => TCG_LICENSES.some(l => l.label === k) || k === 'Autre TCG').sort((a,b)=>b[1]-a[1]);
-      subtitle = `<div class="hint" style="margin-bottom:10px">Sous-familles détectées : ${subRows.map(([k,v])=>`${esc(k)} (${esc(fmtEUR(v))})`).join(' · ') || '—'}</div>`;
+      const oldSettings = {...settings};
+
+      function classifyWith(tempSettings, cat, line){
+        const saved = {
+          eventsStandalone: settings.eventsStandalone,
+          jdrStandalone: settings.jdrStandalone,
+          mergePuzzleCasse: settings.mergePuzzleCasse,
+          tcgAccessoriesInTcg: settings.tcgAccessoriesInTcg,
+        };
+        settings.eventsStandalone = tempSettings.eventsStandalone;
+        settings.jdrStandalone = tempSettings.jdrStandalone;
+        settings.mergePuzzleCasse = tempSettings.mergePuzzleCasse;
+        settings.tcgAccessoriesInTcg = tempSettings.tcgAccessoriesInTcg;
+
+        const res = classify(cat, line);
+
+        settings.eventsStandalone = saved.eventsStandalone;
+        settings.jdrStandalone = saved.jdrStandalone;
+        settings.mergePuzzleCasse = saved.mergePuzzleCasse;
+        settings.tcgAccessoriesInTcg = saved.tcgAccessoriesInTcg;
+
+        return res;
+      }
+
+      const moved = new Map();
+      let movedTotal = 0;
+
+      for(const r of sampleRows){
+        const a = classifyWith(before, r.category, r.rawLine);
+        const b = classifyWith(after, r.category, r.rawLine);
+        if(a.top !== b.top){
+          const k = `${a.top} → ${b.top}`;
+          moved.set(k, (moved.get(k)||0)+1);
+          movedTotal++;
+        }
+      }
+
+      Object.assign(settings, oldSettings);
+
+      const changedKeys = [];
+      for(const k of ["eventsStandalone","jdrStandalone","mergePuzzleCasse","tcgAccessoriesInTcg"]){
+        if(before[k] !== after[k]) changedKeys.push(`${k}:${before[k]}→${after[k]}`);
+      }
+
+      const head = changedKeys.length ? `Changements : ${changedKeys.join(" • ")}` : "Changements : (affichage / aucun toggle de classement)";
+      if(movedTotal === 0) return `${head}\nAucun déplacement de lignes entre catégories principales.`;
+
+      const body = [...moved.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,c])=>`- ${k} : ${c}`).join("\n");
+      return `${head}\nDéplacements (TOP) : ${movedTotal}\n${body}`;
+    } catch {
+      return "—";
     }
-    $('categoryDetail').innerHTML = `<h3><span class="dot" style="background:${info.color};margin-right:8px"></span>${info.label} — ${esc(fmtEUR(total))}</h3>${subtitle}<div class="items">${items.length ? items.slice(0,120).map(renderItemCard).join('') : '<div class="hint">Aucune ligne détectée.</div>'}</div>${items.length>120?`<div class="hint" style="margin-top:10px">${items.length-120} ligne(s) supplémentaire(s) masquée(s) pour garder l’affichage lisible.</div>`:''}`;
   }
 
-  function renderItemCard(item){
-    const pays = item.paymentBreakdown.length ? item.paymentBreakdown.map(p => `<span class="badge">${esc(p.method)} : ${esc(fmtEUR(p.amount))}</span>`).join('') : '<span class="badge">Paiement non identifié</span>';
-    return `<div class="item"><div><strong>${esc(item.name)}</strong><small>${esc(item.subcategory)} · Ticket ${esc(item.ticket)} · ${esc(item.date)} ${esc(item.time)}</small></div><div class="right"><strong>${esc(fmtEUR(item.amount))}</strong></div><div class="paybadges">${pays}</div></div>`;
+  function hashString(s){
+    let h = 2166136261;
+    for(let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h>>>0).toString(16);
   }
 
-  function renderTicketsTable(tickets, filter){
-    const f = normalize(filter);
-    const rows = tickets.filter(t => {
-      if(!f) return true;
-      const hay = normalize([t.ticket,t.employee,t.customer,t.date,t.time,t.items.map(i=>i.name).join(' ')].join(' '));
-      return hay.includes(f);
-    }).map(t => {
-      const products = t.items.map(i => `${i.name} — ${fmtEUR(i.amount)}${i.paymentBreakdown.length ? ' [' + i.paymentBreakdown.map(p => `${p.method} ${fmtEUR(p.amount)}`).join(' · ') + ']' : ''}`).join('<br>');
-      const payment = t.payments.length ? t.payments.map(p => `${p.method} ${fmtEUR(p.amount)}`).join('<br>') : '—';
-      return `<tr><td>${esc(t.date)}</td><td>${esc(t.time)}</td><td class="mono">${esc(t.ticket)}</td><td>${esc(t.employee)}</td><td>${esc(t.customer || '—')}</td><td>${products}</td><td class="right"><strong>${esc(fmtEUR(t.total))}</strong></td><td>${payment}</td></tr>`;
-    }).join('');
-    $('ticketsTable').querySelector('tbody').innerHTML = rows || '<tr><td colspan="8" class="muted">Aucun ticket.</td></tr>';
+  function computeDupSignature(rows){
+    const sigs = rows.map(r=>{
+      const q = (r.qty==null) ? "" : String(r.qty);
+      return `${r.boutiqueKey}|${r.categoryNorm}|${r.ht.toFixed(2)}|${q}`;
+    });
+    sigs.sort();
+    return hashString(sigs.join("\n"));
   }
 
-  function updateManualGap(){
-    const v1 = parseLooseNumber($('manual1').value);
-    const v2 = parseLooseNumber($('manual2').value);
-    if(v1 == null || v2 == null){
-      $('cbGap').textContent = '—';
-      $('cbGap').className = 'value';
-      $('cbGapMeta').textContent = 'Renseigne les deux valeurs';
+  function detectLikelyDuplicatePaste(rows){
+    const m = new Map();
+    for(const r of rows){
+      const q = (r.qty==null) ? "" : String(r.qty);
+      const k = `${r.boutiqueKey}|${r.categoryNorm}|${r.ht.toFixed(2)}|${q}`;
+      m.set(k, (m.get(k)||0)+1);
+    }
+    const total = rows.length;
+    if(total < 12) return { likely:false };
+
+    let dupCount = 0;
+    let maxRep = 1;
+    for(const c of m.values()){
+      if(c >= 2) dupCount += c;
+      if(c > maxRep) maxRep = c;
+    }
+    const share = dupCount / total;
+    const likely = (share >= 0.60 && maxRep >= 2);
+    return { likely, share, maxRep, unique: m.size, total };
+  }
+
+  function showDupWarningBanner(info){
+    if(!info || !info.likely){
+      clearDupWarn();
       return;
     }
-    const cbTotal = parseLooseNumber(($('cbTotal').textContent || '0').replace('€','')) || 0;
-    const diff = round2((v1 + v2) - cbTotal);
-    $('cbGap').textContent = fmtEUR(diff);
-    $('cbGap').className = 'value ' + (Math.abs(diff) < 0.009 ? 'ok' : 'bad');
-    const count = $('cbCount').textContent;
-    $('cbGapMeta').textContent = Math.abs(diff) < 0.009 ? 'Aucun décalage' : `Écart détecté · ${count}`;
+    const pct = Math.round((info.share||0)*100);
+    els.dupWarn.innerHTML =
+      `⚠️ <b>Doublon probable</b> : le tableau semble collé <b>2 fois</b> (ou +). ` +
+      `Beaucoup de lignes sont répétées (${pct}%). Clique ici pour confirmer si c'est voulu.`;
+    els.dupWarn.style.display = 'block';
+    els.dupWarn.onclick = () => openDupModal(info);
   }
 
-  function exportCSV(rows, filename, mapper){
-    const csv = rows.map(mapper).join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
+  function clearDupWarn(){
+    els.dupWarn.textContent = '';
+    els.dupWarn.style.display = 'none';
+    els.dupWarn.onclick = null;
   }
 
-  function getCSS(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
-
-  function analyze(){
-    const raw = $('input').value.trim();
-    if(!raw){ $('status').textContent = 'Colle un journal avant de lancer l’analyse.'; return; }
-    const tickets = parseTickets(raw);
-    const derived = buildDerived(tickets);
-    const paymentHeader = extractPaymentSummary(raw);
-    const period = extractPeriod(raw);
-    render({ tickets, derived, paymentHeader, period });
-    $('status').textContent = `Analyse terminée · ${tickets.length} ticket(s) · ${derived.lines.length} ligne(s) produit(s).`;
-    localStorage.setItem(STORAGE_KEY, raw);
+  function openDupModal(info){
+    const pct = Math.round((info.share||0)*100);
+    els.dupModalText.innerHTML = `
+      <b>Risque compta :</b> si le même tableau est collé 2 fois, les montants seront doublés.<br><br>
+      Indice : ${pct}% des lignes semblent répétées (max répétition : ${info.maxRep}×).<br><br>
+      Si c'est volontaire, clique "OK, je confirme".
+    `;
+    els.dupBg.style.display='flex';
+    els.dupBg.setAttribute('aria-hidden','false');
+  }
+  function closeDupModal(){
+    els.dupBg.style.display='none';
+    els.dupBg.setAttribute('aria-hidden','true');
   }
 
-  const sample = `Journal de caisse en Euro
-Liste des paiements
-Carte Bancaire 3 73,70 0 0,00 73,70
-Espèces 1 19,90 0 0,00 19,90
-02/01/2026
-11:59:14 Barrez-Girardot Zao TIC-1-008715 Vente
-02/01/2026
-11:59:14 Barrez-Girardot Zao TIC-1-008715 WITDMPLBOFR Magic : Booster de Jeu - Tarkir : la tempête des dragons x 3 15,00
-02/01/2026
-11:59:14 Barrez-Girardot Zao TIC-1-008715 FR Taux standard (20%) [20%] 3,00
-02/01/2026
-11:59:14 Barrez-Girardot Zao TIC-1-008715 Mode de paiement : Carte Bancaire 18,00
-Total Document : 18,00
-02/01/2026
-12:30:17 Barrez-Girardot Zao TIC-1-008717 Vente
-02/01/2026
-12:30:17 Barrez-Girardot Zao TIC-1-008717 PIX464 Scrabble Classique x 1 37,416667
-02/01/2026
-12:30:17 Barrez-Girardot Zao TIC-1-008717 FR Taux standard (20%) [20%] 7,483333
-02/01/2026
-12:30:17 Barrez-Girardot Zao TIC-1-008717 Mode de paiement : Carte Bancaire 44,90
-Total Document : 44,90
-02/01/2026
-02:15:40 Barrez-Girardot Zao TIC-1-008718 Vente
-02/01/2026
-02:15:40 Barrez-Girardot Zao TIC-1-008718 CHX25402 Chessex : Set de 7 dés (Opaques) pour JDR Jaune/Noir x 1 6,666667
-02/01/2026
-02:15:40 Barrez-Girardot Zao TIC-1-008718 CHX25405 Chessex : Set de 7 dés (Opaques) pour JDR Vert/Blanc x 1 6,666667
-02/01/2026
-02:15:40 Barrez-Girardot Zao TIC-1-008718 FR Taux standard (20%) [20%] 2,666667
-02/01/2026
-02:15:40 Barrez-Girardot Zao TIC-1-008718 Mode de paiement : Carte Bancaire 16,00
-Total Document : 16,00
-31/01/2026
-06:19:43 Trignol Robin TIC-1-009409 Vente
-31/01/2026
-06:19:43 Trignol Robin TIC-1-009409 YAQ001CR Crack List x 1 16,583333
-31/01/2026
-06:19:43 Trignol Robin TIC-1-009409 FR Taux standard (20%) [20%] 3,316667
-31/01/2026
-06:19:43 Trignol Robin TIC-1-009409 Mode de paiement : Espèces 20,00
-31/01/2026
-06:19:43 Trignol Robin TIC-1-009409 Rendu : 0,10
-Total Document : 19,90`;
+  els.btnCloseDup.addEventListener('click', closeDupModal);
+  els.dupBg.addEventListener('click', (e)=>{ if(e.target===els.dupBg) closeDupModal(); });
+  els.btnDupProceed.addEventListener('click', ()=>{
+    if(parsed){
+      dupConfirmedSig = parsed.dupSig || null;
+      els.dupWarn.style.display = 'none';
+      pushHistorySnapshot(els.raw.value || '', parsed);
+      renderMicroHistory();
+    }
+    closeDupModal();
+  });
 
-  $('analyzeBtn').onclick = analyze;
-  $('sampleBtn').onclick = () => { $('input').value = sample; analyze(); };
-  $('clearBtn').onclick = () => {
-    $('input').value = ''; localStorage.removeItem(STORAGE_KEY); $('status').textContent = 'Zone vidée.';
-  };
-  $('openTicketsBtn').onclick = () => $('ticketsModal').classList.add('show');
-  $('closeTicketsBtn').onclick = () => $('ticketsModal').classList.remove('show');
-  $('ticketsModal').addEventListener('click', e => { if(e.target === $('ticketsModal')) $('ticketsModal').classList.remove('show'); });
-  $('ticketFilter').addEventListener('input', () => renderTicketsTable(state.tickets, $('ticketFilter').value || ''));
-  $('manual1').addEventListener('input', updateManualGap);
-  $('manual2').addEventListener('input', updateManualGap);
-  $('exportTicketsBtn').onclick = () => {
-    if(!state.tickets.length) return;
-    exportCSV([
-      'Date;Heure;Ticket;Employé;Client;Total;Paiements;Produits'
-    ].concat(state.tickets.map(t => [
-      t.date, t.time, t.ticket, `"${(t.employee||'').replace(/"/g,'""')}"`, `"${(t.customer||'').replace(/"/g,'""')}"`,
-      String(t.total).replace('.',','),
-      `"${t.payments.map(p=>`${p.method} ${fmtEUR(p.amount)}`).join(' | ').replace(/"/g,'""')}"`,
-      `"${t.items.map(i=>`${i.name} ${fmtEUR(i.amount)}`).join(' | ').replace(/"/g,'""')}"`
-    ].join(';'))), 'tickets_lgdj.csv', r => r);
-  };
-  $('exportLinesBtn').onclick = () => {
-    if(!state.lines.length) return;
-    exportCSV([
-      'Date;Heure;Ticket;Employé;Client;Catégorie;Sous-catégorie;Produit;Montant;Paiements'
-    ].concat(state.lines.map(l => [
-      l.date,l.time,l.ticket,`"${(l.employee||'').replace(/"/g,'""')}"`, `"${(l.customer||'').replace(/"/g,'""')}"`,
-      CATEGORY_INFO[l.category].label, `"${(l.subcategory||'').replace(/"/g,'""')}"`, `"${(l.name||'').replace(/"/g,'""')}"`,
-      String(l.amount).replace('.',','), `"${l.paymentBreakdown.map(p=>`${p.method} ${fmtEUR(p.amount)}`).join(' | ').replace(/"/g,'""')}"`
-    ].join(';'))), 'lignes_lgdj.csv', r => r);
-  };
+  function parseAll(){
+    clearParseError();
+    clearDupWarn();
 
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if(saved){ $('input').value = saved; analyze(); }
-})();
+    const raw = els.raw.value || '';
+    const lines = raw.split(/\r?\n/);
+    const { from, to } = extractDateRange(raw);
+    const dateTxt = (from && to) ? dateLabel(from, to) : "";
+
+    const rows = [];
+    let used = 0, err = 0, moneyFound = 0;
+    debug = { used: [], err: [], ignored: [] };
+
+    for(const line of lines){
+      const l = (line||'').trim();
+      if(!l){ debug.ignored.push({reason:'Ligne vide', line}); continue; }
+
+      const ln = normalize(line);
+
+      if(IGNORE_LINE_PATTERNS.some(p => ln.includes(p))){
+        debug.ignored.push({reason:'Ligne de statut (ignorée)', line});
+        continue;
+      }
+
+      const boutiqueKey = detectBoutique(ln);
+      if(!boutiqueKey){ debug.ignored.push({reason:'Boutique non détectée', line}); continue; }
+
+      const ht = extractHTFromLine(line);
+      if(ht === null){
+        err++;
+        debug.err.push({reason:'Montant HT introuvable', line});
+        continue;
+      }
+      moneyFound++;
+
+      const cat = extractCategoryName(line);
+      const catNorm = normalize(cat);
+      const qty = extractQtyFromLine(line);
+
+      const cls = classify(cat, line);
+      const rec = {
+        boutiqueKey,
+        top: cls.top,
+        sub: cls.sub,
+        category: cat,
+        categoryNorm: catNorm,
+        ht,
+        qty,
+        license: cls.license,
+        leafKids: cls.leafKids || null,
+        leafDeleted: cls.leafDeleted || null,
+        why: cls.why || [],
+        trace: buildTrace(cat, line, cls),
+        rawLine: line
+      };
+
+      rows.push(rec);
+      used++;
+      debug.used.push({reason:`OK → ${cls.top}`, line});
+    }
+
+    if(used === 0 || moneyFound === 0){
+      els.metaLines.textContent = String(lines.length);
+      els.metaUsed.textContent = '0';
+      els.metaErr.textContent = String(err);
+      parsed = null;
+      view = { level:'dashboard', category:null, tcgLicense:null, globalOnly:false };
+      render();
+      showParseError("Erreur : le contenu collé ne ressemble pas au tableau PrestaShop (aucune ligne exploitable / aucun montant trouvé).");
+      return;
+    }
+
+    els.metaLines.textContent = String(lines.length);
+    els.metaUsed.textContent = String(used);
+    els.metaErr.textContent = String(err);
+
+    const present = BOUTIQUES.filter(b => rows.some(r => r.boutiqueKey === b.key));
+    const two = present.length >= 2;
+    els.warnTwo.style.display = two ? 'block' : 'none';
+
+    const byBoutique = {};
+    for(const b of BOUTIQUES){ byBoutique[b.key] = makeBucket(); }
+    const global = makeBucket();
+
+    for(const r of rows){
+      addRow(byBoutique[r.boutiqueKey], r);
+      addRow(global, r);
+    }
+
+    const activeKey = (!two && present.length===1) ? present[0].key : 'GLOBAL';
+    parsed = { rows, present, two, activeKey, byBoutique, global, dateTxt, settingsSnap: snapshotSettings() };
+
+    const dupInfo = detectLikelyDuplicatePaste(rows);
+    const dupSig = computeDupSignature(rows);
+    parsed.dupSig = dupSig;
+    parsed.dupLikely = dupInfo.likely;
+    parsed.dupInfo = dupInfo;
+
+    setThemeForBoutique(activeKey, two);
+    view = { level:'dashboard', category:null, tcgLicense:null, globalOnly: two };
+
+    const b = currentBucket();
+    if(b){
+      const sansTot = calcSansExclus(b);
+      els.leftSans.textContent = formatEUR(sansTot) + euroSuffix();
+      updateCopyableValue(els.leftSans, sansTot);
+      els.leftTot.textContent = formatEUR(b.total) + euroSuffix();
+      updateCopyableValue(els.leftTot, b.total);
+    } else {
+      els.leftSans.textContent = "—"; els.leftSans.dataset.rawValue = '';
+      els.leftTot.textContent  = "—"; els.leftTot.dataset.rawValue = '';
+    }
+
+    if(parsed.dupLikely && dupConfirmedSig !== dupSig){
+      showDupWarningBanner(dupInfo);
+    } else {
+      pushHistorySnapshot(raw, parsed);
+    }
+
+    renderMicroHistory();
+    render();
+  }
+
+  function showParseError(msg){
+    els.parseErr.textContent = msg;
+    els.parseErr.style.display = 'block';
+  }
+  function clearParseError(){
+    els.parseErr.textContent = '';
+    els.parseErr.style.display = 'none';
+  }
+
+  function rightHeaderTitle(){
+    const label = parsed.activeKey === 'GLOBAL'
+      ? 'GLOBAL'
+      : (BOUTIQUES.find(x=>x.key===parsed.activeKey)?.label || parsed.activeKey);
+    const dt = parsed.dateTxt ? ` • ${parsed.dateTxt}` : "";
+    return `${label}${dt}`;
+  }
+
+  function clearDyn(){
+    els.rightBody.querySelectorAll('.dyn').forEach(n => n.remove());
+  }
+
+  function render(){
+    clearDyn();
+
+    if(!parsed){
+      els.rightTitle.textContent = 'Résultats';
+      els.btnBack.style.display = 'none';
+      const empty = document.createElement('div');
+      empty.className = 'empty dyn';
+      empty.innerHTML = "Colle un export : l\u2019analyse se fait automatiquement.";
+      els.rightBody.appendChild(empty);
+      return;
+    }
+
+    els.btnBack.style.display = (view.level === 'dashboard') ? 'none' : 'inline-flex';
+
+    if(view.level === 'dashboard') renderDashboard();
+    else if(view.level === 'category') renderCategory();
+    else if(view.level === 'tcgLicense') renderTcgLicense();
+    else if(view.level === 'lorcanaCards') renderLorcanaCards();
+    else if(view.level === 'kids') renderKids();
+    else if(view.level === 'deletedCats') renderDeletedCats();
+
+    els.warnTwo.style.display = parsed.two ? 'block' : 'none';
+  }
+
+  function renderDashboard(){
+    const b = currentBucket();
+    els.rightTitle.textContent = rightHeaderTitle();
+
+    const order = buildTopOrder();
+    const data = order.map(k => ({
+      key:k,
+      name:k,
+      value: b.totalsHT.get(k) || 0,
+      qty: (b.totalsQty.get(k) ?? null)
+    })).filter(x => x.value > 0);
+
+    const combo = renderComboPieAndList(
+      data,
+      'Répartition (catégories) — clic pour ouvrir',
+      settings.showQty==='ON' ? `Qté total: ${qtyText(b.totalQty)}` : '',
+      (d) => { view = { level:'category', category:d.key, tcgLicense:null, globalOnly: parsed.two }; render(); },
+      (d) => buildDevPayload({ level:'dashboard', pickKey:d.key })
+    );
+
+    els.rightBody.appendChild(combo);
+  }
+
+  function renderCategory(){
+    const b = currentBucket();
+    const cat = view.category;
+    els.rightTitle.textContent = rightHeaderTitle();
+
+    if(cat === TOP.TCG){
+      const entries = [...b.tcg.licenses.entries()]
+        .map(([lic,obj]) => ({
+          key: lic,
+          name: prettyLicense(lic),
+          value: obj.value,
+          qty: obj.hasQty ? obj.qty : null
+        }))
+        .sort((a,b)=>b.value-a.value);
+
+      const meta = settings.showQty==='ON' ? `Qté TCG: ${qtyText(b.totalsQty.get(TOP.TCG))}` : '';
+      const combo = renderComboPieAndList(
+        entries,
+        `Répartition — ${TOP.TCG} (licences)`,
+        meta,
+        (d)=>{ view = { level:'tcgLicense', category:TOP.TCG, tcgLicense:d.key, globalOnly: parsed.two }; render(); },
+        (d) => buildDevPayload({ level:'category', category:TOP.TCG, pickKey:d.key })
+      );
+      els.rightBody.appendChild(combo);
+      return;
+    }
+
+    if(cat === TOP.JEUX){
+      const map = b.sub.get(TOP.JEUX) || new Map();
+      const entries = [...map.entries()]
+        .map(([name,obj])=>({ key:name, name, value:obj.value, qty: obj.hasQty ? obj.qty : null }))
+        .sort((a,b)=>b.value-a.value);
+
+      const meta = settings.showQty==='ON' ? `Qté ${TOP.JEUX}: ${qtyText(b.totalsQty.get(TOP.JEUX))}` : '';
+      const combo = renderComboPieAndList(
+        entries,
+        `Répartition — ${TOP.JEUX} (sous-catégories)`,
+        meta,
+        (d)=>{
+          if(d.key === TOP.JEUX_ENFANTS){
+            view = { level:'kids', category:TOP.JEUX, tcgLicense:null, globalOnly: parsed.two };
+            render();
+          }
+        },
+        (d) => buildDevPayload({ level:'category', category:TOP.JEUX, pickKey:d.key })
+      );
+      els.rightBody.appendChild(combo);
+      return;
+    }
+
+    if(cat === TOP.AUTRE){
+      const map = b.sub.get(TOP.AUTRE) || new Map();
+      const entries = [...map.entries()]
+        .map(([name,obj])=>({ key:name, name, value:obj.value, qty: obj.hasQty ? obj.qty : null }))
+        .sort((a,b)=>b.value-a.value);
+
+      const meta = settings.showQty==='ON' ? `Qté ${TOP.AUTRE}: ${qtyText(b.totalsQty.get(TOP.AUTRE))}` : '';
+      const combo = renderComboPieAndList(
+        entries,
+        `Détail — ${TOP.AUTRE}`,
+        meta,
+        (d)=>{
+          if(d.key === TOP.AUTRE_DELETED){
+            view = { level:'deletedCats', category:TOP.AUTRE, tcgLicense:null, globalOnly: parsed.two };
+            render();
+          }
+        },
+        (d) => buildDevPayload({ level:'category', category:TOP.AUTRE, pickKey:d.key })
+      );
+      els.rightBody.appendChild(combo);
+      return;
+    }
+
+    const map = b.sub.get(cat) || new Map();
+    const entries = [...map.entries()]
+      .map(([name,obj])=>({ key:name, name, value:obj.value, qty: obj.hasQty ? obj.qty : null }))
+      .sort((a,b)=>b.value-a.value);
+
+    const meta = settings.showQty==='ON' ? `Qté ${cat}: ${qtyText(b.totalsQty.get(cat))}` : '';
+    const combo = renderComboPieAndList(
+      entries,
+      `Répartition — ${cat} (sous-catégories)`,
+      meta,
+      null,
+      (d) => buildDevPayload({ level:'category', category:cat, pickKey:d.key })
+    );
+    els.rightBody.appendChild(combo);
+  }
+
+  function renderKids(){
+    const b = currentBucket();
+    els.rightTitle.textContent = rightHeaderTitle();
+
+    const entries = [...(b.kidsLeaves || new Map()).entries()]
+      .map(([name,obj]) => ({ key:name, name, value:obj.value, qty: obj.hasQty ? obj.qty : null }))
+      .sort((a,b)=>b.value-a.value);
+
+    const meta = settings.showQty==='ON' ? `Qté ${TOP.JEUX_ENFANTS}: ${qtyText(entries.reduce((s,x)=>s+(x.qty||0),0))}` : '';
+    const combo = renderComboPieAndList(
+      entries,
+      `Détail — ${TOP.JEUX_ENFANTS} (Jeux X ans / Défis Nature)`,
+      meta,
+      null,
+      (d) => buildDevPayload({ level:'kids', pickKey:d.key })
+    );
+    els.rightBody.appendChild(combo);
+  }
+
+  function renderDeletedCats(){
+    const b = currentBucket();
+    els.rightTitle.textContent = rightHeaderTitle();
+
+    const entries = [...(b.deletedLeaves || new Map()).entries()]
+      .map(([name,obj]) => ({ key:name, name, value:obj.value, qty: obj.hasQty ? obj.qty : null }))
+      .sort((a,b)=>b.value-a.value);
+
+    const meta = settings.showQty==='ON' ? `Qté ${TOP.AUTRE_DELETED}: ${qtyText(entries.reduce((s,x)=>s+(x.qty||0),0))}` : '';
+    const combo = renderComboPieAndList(
+      entries,
+      `Détail — ${TOP.AUTRE_DELETED}`,
+      meta,
+      null,
+      (d) => buildDevPayload({ level:'deletedCats', pickKey:d.key })
+    );
+    els.rightBody.appendChild(combo);
+  }
+
+  // Détecte si un nom de sous-catégorie Lorcana correspond à une carte vendue à l'unité.
+  // Exemples : "Disney Lorcana - Série 1", "Disney Lorcana - Série 12"
+  function isLorcanaSingleCard(name){
+    return /disney\s+lorcana\s*[-–]\s*s[eé]rie\s*\d+/i.test(name);
+  }
+
+  function renderTcgLicense(){
+    const b = currentBucket();
+    const lic = view.tcgLicense;
+    els.rightTitle.textContent = rightHeaderTitle();
+
+    const seriesMap = b.tcg.seriesByLicense.get(lic) || new Map();
+
+    // Pour Lorcana : fusionner toutes les entrées "Disney Lorcana - Série X" en "Cartes à l'unité"
+    const isLorcana = normalize(lic) === normalize("lorcana");
+    const mergedMap = new Map();
+    for(const [name, obj] of seriesMap.entries()){
+      let displayName = name;
+      if(isLorcana && isLorcanaSingleCard(name)){
+        displayName = "Cartes à l'unité";
+      }
+      if(!mergedMap.has(displayName)){
+        mergedMap.set(displayName, { value:0, qty:0, hasQty:false });
+      }
+      const cur = mergedMap.get(displayName);
+      cur.value += obj.value;
+      if(obj.hasQty){ cur.qty += obj.qty; cur.hasQty = true; }
+    }
+
+    const entries = [...mergedMap.entries()]
+      .map(([name,obj]) => ({ key:name, name, value:obj.value, qty: obj.hasQty ? obj.qty : null }))
+      .sort((a,b)=>b.value-a.value);
+
+    const meta = settings.showQty==='ON'
+      ? `Qté ${prettyLicense(lic)}: ${qtyText(entries.reduce((s,x)=>s+(x.qty||0),0))}`
+      : '';
+
+    // "Cartes à l'unité" est cliquable pour Lorcana — drill vers le détail par série
+    const onPickLicense = isLorcana
+      ? (d) => {
+          if(d.key === "Cartes à l'unité"){
+            view = { level:'lorcanaCards', category:TOP.TCG, tcgLicense:lic, globalOnly: parsed.two };
+            render();
+          }
+        }
+      : null;
+
+    const combo = renderComboPieAndList(
+      entries,
+      `Répartition — ${prettyLicense(lic)} (séries)`,
+      meta,
+      onPickLicense,
+      (d) => buildDevPayload({ level:'tcgLicense', tcgLicense:lic, pickKey:d.key })
+    );
+    els.rightBody.appendChild(combo);
+  }
+
+  function renderLorcanaCards(){
+    const b = currentBucket();
+    const lic = view.tcgLicense;
+    els.rightTitle.textContent = rightHeaderTitle();
+
+    const seriesMap = b.tcg.seriesByLicense.get(lic) || new Map();
+
+    // N'afficher que les entrées "Disney Lorcana - Série X"
+    const entries = [...seriesMap.entries()]
+      .filter(([name]) => isLorcanaSingleCard(name))
+      .map(([name, obj]) => ({ key:name, name, value:obj.value, qty: obj.hasQty ? obj.qty : null }))
+      .sort((a,b) => b.value - a.value);
+
+    const meta = settings.showQty==='ON'
+      ? `Qté cartes à l'unité: ${qtyText(entries.reduce((s,x)=>s+(x.qty||0),0))}`
+      : '';
+
+    const combo = renderComboPieAndList(
+      entries,
+      `Lorcana — Cartes à l'unité (détail par série)`,
+      meta,
+      null,
+      (d) => buildDevPayload({ level:'tcgLicense', tcgLicense:lic, pickKey:d.key })
+    );
+    els.rightBody.appendChild(combo);
+  }
+
+  els.btnBack.addEventListener('click', ()=>{
+    if(!parsed) return;
+    if(view.level === 'tcgLicense') view = { level:'category', category:TOP.TCG, tcgLicense:null, globalOnly: parsed.two };
+    else if(view.level === 'lorcanaCards') view = { level:'tcgLicense', category:TOP.TCG, tcgLicense:view.tcgLicense, globalOnly: parsed.two };
+    else if(view.level === 'kids') view = { level:'category', category:TOP.JEUX, tcgLicense:null, globalOnly: parsed.two };
+    else if(view.level === 'deletedCats') view = { level:'category', category:TOP.AUTRE, tcgLicense:null, globalOnly: parsed.two };
+    else if(view.level === 'category') view = { level:'dashboard', category:null, tcgLicense:null, globalOnly: parsed.two };
+    else view = { level:'dashboard', category:null, tcgLicense:null, globalOnly: parsed.two };
+    render();
+  });
+
+  function boutiqueLabelForParsed(){
+    if(!parsed) return "";
+    if(parsed.two || parsed.activeKey === 'GLOBAL') return "2 boutiques / GLOBAL";
+    if(parsed.activeKey === 'GAMBETTA') return "Gambetta";
+    if(parsed.activeKey === 'PIGALLE') return "Pigalle";
+    return parsed.activeKey;
+  }
+
+  function pickRowsByFilter(filter){
+    if(!parsed) return [];
+    const rows = parsed.rows;
+    const needBoutique = (parsed.activeKey !== 'GLOBAL' && !parsed.two);
+    const keyBoutique = parsed.activeKey;
+    const inBoutique = (r)=> !needBoutique || r.boutiqueKey === keyBoutique;
+
+    const lvl = filter.level;
+
+    if(lvl === 'dashboard'){
+      if(!filter.pickKey) return rows.filter(inBoutique);
+      return rows.filter(r => inBoutique(r) && r.top === filter.pickKey);
+    }
+
+    if(lvl === 'category'){
+      const cat = filter.category;
+      if(cat === TOP.TCG){
+        if(!filter.pickKey) return rows.filter(r => inBoutique(r) && r.top === TOP.TCG);
+        return rows.filter(r => inBoutique(r) && r.top === TOP.TCG && r.license === filter.pickKey);
+      }
+      if(!filter.pickKey){
+        return rows.filter(r => inBoutique(r) && r.top === cat);
+      }
+      return rows.filter(r => inBoutique(r) && r.top === cat && r.sub === filter.pickKey);
+    }
+
+    if(lvl === 'tcgLicense'){
+      const lic = filter.tcgLicense;
+      if(!filter.pickKey) return rows.filter(r => inBoutique(r) && r.top === TOP.TCG && r.license === lic);
+      return rows.filter(r => inBoutique(r) && r.top === TOP.TCG && r.license === lic && r.sub === filter.pickKey);
+    }
+
+    if(lvl === 'kids'){
+      if(!filter.pickKey){
+        return rows.filter(r => inBoutique(r) && r.top === TOP.JEUX && r.sub === TOP.JEUX_ENFANTS);
+      }
+      return rows.filter(r => inBoutique(r) && r.top === TOP.JEUX && r.sub === TOP.JEUX_ENFANTS && r.leafKids === filter.pickKey);
+    }
+
+    if(lvl === 'deletedCats'){
+      if(!filter.pickKey){
+        return rows.filter(r => inBoutique(r) && r.top === TOP.AUTRE && r.sub === TOP.AUTRE_DELETED);
+      }
+      return rows.filter(r => inBoutique(r) && r.top === TOP.AUTRE && r.sub === TOP.AUTRE_DELETED && (r.leafDeleted||r.category) === filter.pickKey);
+    }
+
+    return rows.filter(inBoutique);
+  }
+
+  function buildDevPayload(filter){
+    if(!parsed) return null;
+
+    const rows = pickRowsByFilter(filter);
+    const totalHT = rows.reduce((s,r)=>s+(r.ht||0),0);
+    const totalQty = rows.reduce((s,r)=>s+(Number.isFinite(r.qty)?r.qty:0),0);
+
+    let title = "—";
+    if(filter.level === 'dashboard'){
+      title = filter.pickKey ? `Catégorie : ${filter.pickKey}` : "Dashboard : toutes catégories";
+    } else if(filter.level === 'category'){
+      if(filter.category === TOP.TCG){
+        title = filter.pickKey ? `TCG / ${prettyLicense(filter.pickKey)}` : "TCG (toutes licences)";
+      } else {
+        title = filter.pickKey ? `${filter.category} / ${filter.pickKey}` : `${filter.category} (toutes sous-catégories)`;
+      }
+    } else if(filter.level === 'tcgLicense'){
+      title = filter.pickKey ? `TCG / ${prettyLicense(filter.tcgLicense)} / ${filter.pickKey}` : `TCG / ${prettyLicense(filter.tcgLicense)} (toutes séries)`;
+    } else if(filter.level === 'kids'){
+      title = filter.pickKey ? `Jeux enfants / ${filter.pickKey}` : `Jeux enfants (toutes entrées)`;
+    } else if(filter.level === 'deletedCats'){
+      title = filter.pickKey ? `Catégories supprimées / ${filter.pickKey}` : `Catégories supprimées (toutes entrées)`;
+    }
+
+    return {
+      title,
+      totalHT,
+      totalQty: settings.showQty==='ON' ? totalQty : null,
+      lines: rows.map(r => ({
+        rawLine: r.rawLine,
+        why: r.why || [],
+        trace: r.trace || "—",
+      })),
+      dateTxt: parsed.dateTxt || "",
+      boutiqueLabel: boutiqueLabelForParsed(),
+    };
+  }
+
+  function openDevDetails(payload){
+    if(!payload || !parsed) return;
+    lastDevPayload = payload;
+
+    const linesCount = payload.lines?.length || 0;
+    els.devSummary.innerHTML = `
+<b>Filtre</b> : ${escapeHtml(payload.title || "—")}<br>
+<b>Totaux</b> : ${escapeHtml(formatEUR(payload.totalHT||0))}${escapeHtml(euroSuffix())}
+${settings.showQty==='ON' ? ` • <b>Qté</b> : ${escapeHtml(String(payload.totalQty ?? "—"))}` : ``}
+<br>
+<b>Lignes</b> : ${linesCount}
+${payload.dateTxt ? `<br><b>Période</b> : ${escapeHtml(payload.dateTxt)}` : ``}
+${payload.boutiqueLabel ? `<br><b>Boutique</b> : ${escapeHtml(payload.boutiqueLabel)}` : ``}
+    `.trim();
+
+    els.devDiffBox.textContent = lastDiffText || "—";
+
+    if(linesCount === 0){
+      els.devLinesBox.textContent = "—";
+    } else {
+      const txt = payload.lines.map((x,i)=>{
+        const why = (x.why && x.why.length) ? x.why.join(" | ") : "—";
+        const trace = x.trace || "—";
+        return `#${i+1}\nPourquoi : ${why}\nTrace : ${trace}\nLigne : ${x.rawLine}`;
+      }).join("\n\n");
+      els.devLinesBox.textContent = txt;
+    }
+
+    els.devBg.style.display='flex';
+    els.devBg.setAttribute('aria-hidden','false');
+  }
+
+  function closeDev(){
+    els.devBg.style.display='none';
+    els.devBg.setAttribute('aria-hidden','true');
+  }
+
+  els.btnCloseDev.addEventListener('click', closeDev);
+  els.devBg.addEventListener('click', (e)=>{ if(e.target===els.devBg) closeDev(); });
+
+  els.btnCopyDev.addEventListener('click', async ()=>{
+    try{
+      const txt = [
+        (els.devSummary.textContent||'').trim(),
+        "\n\n---\nDiff de toggles\n---\n",
+        els.devDiffBox.textContent||'',
+        "\n\n---\nLignes + raisons\n---\n",
+        els.devLinesBox.textContent||'',
+      ].join("");
+      await navigator.clipboard.writeText(txt);
+      els.btnCopyDev.textContent = 'Copié';
+      setTimeout(()=> els.btnCopyDev.textContent='Copier détail', 900);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = (els.devLinesBox.textContent||'');
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      els.btnCopyDev.textContent = 'Copié';
+      setTimeout(()=> els.btnCopyDev.textContent='Copier détail', 900);
+    }
+  });
+
+  const HIST_KEY = "lgdj_hist_v0714";
+
+  function loadHist(){
+    try{
+      const a = JSON.parse(localStorage.getItem(HIST_KEY) || "[]");
+      return Array.isArray(a) ? a : [];
+    }catch{ return []; }
+  }
+
+  function saveHistUnlimited(arr){
+    let a = arr.slice();
+    while(a.length){
+      try{
+        localStorage.setItem(HIST_KEY, JSON.stringify(a));
+        return;
+      } catch(e){
+        a.pop();
+      }
+    }
+    try{ localStorage.removeItem(HIST_KEY); }catch{}
+  }
+
+  function histBoutiqueLabel(parsedObj){
+    if(parsedObj.two || parsedObj.activeKey === 'GLOBAL') return "2 boutiques";
+    if(parsedObj.activeKey === 'GAMBETTA') return "Gambetta";
+    if(parsedObj.activeKey === 'PIGALLE') return "Pigalle";
+    return "GLOBAL";
+  }
+
+  function boutiqueColorHex(parsedObj){
+    if(parsedObj.two || parsedObj.activeKey === 'GLOBAL') return '#22c55e';
+    if(parsedObj.activeKey === 'GAMBETTA') return '#f59e0b';
+    return '#60a5fa';
+  }
+
+  function pushHistorySnapshot(rawText, parsedObj){
+    if(!rawText || !rawText.trim()) return;
+
+    const hist = loadHist();
+    const label = histBoutiqueLabel(parsedObj);
+    const dateStr = parsedObj.dateTxt || "";
+    const color = boutiqueColorHex(parsedObj);
+    const total = (parsedObj.activeKey === 'GLOBAL') ? parsedObj.global.total :
+      (parsedObj.byBoutique[parsedObj.activeKey]?.total ?? parsedObj.global.total);
+
+    const sig = `${label}__${dateStr}__${parsedObj.dupSig || hashString(rawText.trim().slice(0,1200))}`;
+
+    const next = [{
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      sig,
+      label,
+      dateStr,
+      color,
+      total,
+      rawText,
+      ts: Date.now()
+    }, ...hist.filter(x=>x.sig!==sig)];
+
+    saveHistUnlimited(next);
+  }
+
+  function renderMicroHistory(){
+    const hist = loadHist();
+    const showSearch = hist.length >= 8;
+    els.histSearch.style.display = showSearch ? 'flex' : 'none';
+    els.microHist.classList.toggle('withSearch', showSearch);
+
+    const q = (els.histQuery.value || '').trim().toLowerCase();
+    let list = hist;
+    if(showSearch && q){
+      list = hist.filter(h => (`${h.label||''} ${h.dateStr||''}`).toLowerCase().includes(q));
+    }
+
+    els.microHist.innerHTML = '';
+    if(list.length === 0) return;
+
+    list.forEach(h=>{
+      const card = document.createElement('div');
+      card.className = 'histCard';
+      card.innerHTML = `
+        <div class="histLeft">
+          <span class="pill" style="border-color:${h.color}55;color:${h.color}">${escapeHtml(h.label)}</span>
+          <span class="histText">${escapeHtml(h.dateStr || "—")}</span>
+        </div>
+        <div class="histRight">${formatEUR(h.total)}${euroSuffix()}</div>
+        <button class="histDel" type="button" title="Supprimer" aria-label="Supprimer">×</button>
+      `;
+
+      card.addEventListener('click', (e)=>{
+        const isDel = e.target.closest('.histDel');
+        if(isDel) return;
+        els.raw.value = h.rawText || '';
+        scheduleParse(true);
+        els.raw.focus();
+      });
+
+      const delBtn = card.querySelector('.histDel');
+      delBtn.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const ok = confirm("Supprimer cet élément de l'historique ?");
+        if(!ok) return;
+        const all = loadHist().filter(x => x.id !== h.id);
+        saveHistUnlimited(all);
+        renderMicroHistory();
+      });
+
+      els.microHist.appendChild(card);
+    });
+  }
+
+  els.histClear.addEventListener('click', ()=>{
+    els.histQuery.value = '';
+    renderMicroHistory();
+  });
+  els.histQuery.addEventListener('input', ()=> renderMicroHistory());
+
+  function renderTut(){
+    const pages = [
+      { title: "1) Choisir la boutique", text: "Dans PrestaShop, sélectionne la boutique Pigalle OU Gambetta depuis un onglet (ex : Tableau de bord)." },
+      { title: "2) Accéder au rapport", text: "Va dans Commandes → Rapport Commandes TVA Bénéfices." },
+      { title: "3) Paramétrer l'export", text: "Préférences d'export : Type de rapport = Catégories ; Format = html (souvent déjà sélectionné)." },
+      { title: "4) Définir la période", text: "Par date de commande : indique date de début et date de fin. Pour un jour : même date début/fin." },
+      { title: "5) Statuts", text: "Tout décocher, puis cocher uniquement Store - Sale." },
+      { title: "6) Export + copier", text: "Cliquer Exporter, puis Ctrl+A → Ctrl+C sur la page du tableau." },
+      { title: "7) Coller", text: "Ici : Ctrl+V. L'analyse se lance automatiquement et les résultats apparaissent." }
+    ];
+    const p = pages[tutPage];
+    els.tutContent.innerHTML = `
+      <h3 class="pageTitle">${escapeHtml(p.title)}</h3>
+      <div class="pageText">${escapeHtml(p.text)}</div>
+      <div class="muted" style="margin-top:10px">Si 2 boutiques sont collées : mode GLOBAL (catégories uniquement).</div>
+    `;
+    els.tutIdx.textContent = String(tutPage+1);
+    els.tutTotal.textContent = String(pages.length);
+    els.tutPrev.disabled = tutPage === 0;
+    els.tutNext.textContent = (tutPage === pages.length-1) ? 'Terminer' : 'Suivant';
+  }
+  let tutPage = 0;
+  function openTut(){ tutPage=0; renderTut(); els.tutBg.style.display='flex'; }
+  function closeTut(){ els.tutBg.style.display='none'; }
+  els.btnTut.addEventListener('click', openTut);
+  els.btnCloseTut.addEventListener('click', closeTut);
+  els.tutBg.addEventListener('click', (e)=>{ if(e.target===els.tutBg) closeTut(); });
+  els.tutPrev.addEventListener('click', ()=>{ if(tutPage>0){ tutPage--; renderTut(); }});
+  els.tutNext.addEventListener('click', ()=>{ if(tutPage<6){ tutPage++; renderTut(); } else closeTut(); });
+
+  function syncSettingsUI(){
+    els.toggleQty.textContent = `Quantités : ${settings.showQty==='ON' ? 'VISIBLES' : 'CACHÉES'}`;
+    els.toggleEuro.textContent = `Symbole € : ${settings.showEuro==='ON' ? 'VISIBLE' : 'CACHÉ'}`;
+
+    els.toggleEvt.textContent = `Événements : ${settings.eventsStandalone==='YES' ? 'CATÉGORIE' : 'RÉPARTIS'}`;
+    els.toggleJdr.textContent = `JDR : ${settings.jdrStandalone==='YES' ? 'CATÉGORIE' : 'DANS JEUX'}`;
+    els.toggleMergePC.textContent = `Puzzles+Casse-tête : ${settings.mergePuzzleCasse==='YES' ? 'FUSIONNÉS' : 'SÉPARÉS'}`;
+    els.toggleTcgAcc.textContent = `Accessoires TCG : ${settings.tcgAccessoriesInTcg==='YES' ? 'DANS TCG' : 'DANS ACCESSOIRES'}`;
+    els.toggleDev.textContent = `DEV : ${settings.devMode==='ON' ? 'ON' : 'OFF'}`;
+
+    els.toggleQty.classList.toggle('btnPrimary', settings.showQty==='ON');
+    els.toggleEvt.classList.toggle('btnPrimary', settings.eventsStandalone==='YES');
+    els.toggleJdr.classList.toggle('btnPrimary', settings.jdrStandalone==='YES');
+    els.toggleTcgAcc.classList.toggle('btnPrimary', settings.tcgAccessoriesInTcg==='YES');
+
+    els.devDot.classList.toggle('on', settings.devMode==='ON');
+  }
+
+  function persistSettings(){
+    localStorage.setItem('lgdj_qty', settings.showQty);
+    localStorage.setItem('lgdj_euro', settings.showEuro);
+    localStorage.setItem('lgdj_evt', settings.eventsStandalone);
+    localStorage.setItem('lgdj_jdr', settings.jdrStandalone);
+    localStorage.setItem('lgdj_merge_pc', settings.mergePuzzleCasse);
+    localStorage.setItem('lgdj_tcgacc', settings.tcgAccessoriesInTcg);
+    localStorage.setItem('lgdj_dev', settings.devMode);
+  }
+
+  function openSet(){
+    syncSettingsUI();
+    els.setBg.style.display='flex';
+  }
+  function closeSet(){
+    els.setBg.style.display='none';
+  }
+
+  els.btnSettings.addEventListener('click', openSet);
+  els.btnCloseSet.addEventListener('click', closeSet);
+  els.setBg.addEventListener('click', (e)=>{ if(e.target===els.setBg) closeSet(); });
+
+  function applySettingsAndReparse(){
+    const before = prevSettingsSnap || snapshotSettings();
+    persistSettings();
+    const after = snapshotSettings();
+
+    if(settings.devMode === 'ON' && parsed && parsed.rows && parsed.rows.length){
+      lastDiffText = computeDiffText(before, after, parsed.rows);
+    } else if(settings.devMode !== 'ON'){
+      lastDiffText = "—";
+    }
+
+    prevSettingsSnap = after;
+    syncSettingsUI();
+
+    if(parsed){
+      parseAll();
+    } else {
+      renderMicroHistory();
+      render();
+    }
+  }
+
+  els.toggleQty.addEventListener('click', ()=>{
+    settings.showQty = (settings.showQty==='ON') ? 'OFF' : 'ON';
+    applySettingsAndReparse();
+  });
+  els.toggleEuro.addEventListener('click', ()=>{
+    settings.showEuro = (settings.showEuro==='ON') ? 'OFF' : 'ON';
+    applySettingsAndReparse();
+  });
+  els.toggleEvt.addEventListener('click', ()=>{
+    settings.eventsStandalone = (settings.eventsStandalone==='YES') ? 'NO' : 'YES';
+    applySettingsAndReparse();
+  });
+  els.toggleJdr.addEventListener('click', ()=>{
+    settings.jdrStandalone = (settings.jdrStandalone==='YES') ? 'NO' : 'YES';
+    applySettingsAndReparse();
+  });
+  els.toggleMergePC.addEventListener('click', ()=>{
+    settings.mergePuzzleCasse = (settings.mergePuzzleCasse==='YES') ? 'NO' : 'YES';
+    applySettingsAndReparse();
+  });
+  els.toggleTcgAcc.addEventListener('click', ()=>{
+    settings.tcgAccessoriesInTcg = (settings.tcgAccessoriesInTcg==='YES') ? 'NO' : 'YES';
+    applySettingsAndReparse();
+  });
+  els.toggleDev.addEventListener('click', ()=>{
+    settings.devMode = (settings.devMode==='ON') ? 'OFF' : 'ON';
+    applySettingsAndReparse();
+  });
+
+  els.btnReset.addEventListener('click', ()=>{
+    const ok = confirm("Réinitialiser les paramètres par défaut ?");
+    if(!ok) return;
+    Object.assign(settings, DEFAULTS);
+    lastDiffText = "—";
+    prevSettingsSnap = snapshotSettings();
+    dupConfirmedSig = null;
+    applySettingsAndReparse();
+  });
+
+  function openVer(){
+    els.verContent.innerHTML = `
+      <h3 class="pageTitle">v0.7.16</h3>
+      <div class="pageText">
+        <ul>
+          <li><b>v0.7.16</b> • Lorcana : "Cartes à l'unité" est désormais cliquable → drill-down par série</li>
+          <li><b>v0.7.16</b> • Clic sur le NOM d'une catégorie dans la légende → copie le nom dans le presse-papier</li>
+          <li><b>v0.7.16</b> • Lorcana : "Disney Lorcana - Série X" regroupées en "Cartes à l'unité"</li>
+          <li><b>v0.7.15</b> • Tous les montants cliquables pour copier · CA Total hors TCG/Escape/Évt</li>
+          <li><b>v0.7.14</b> • Retrait épinglage, bouton DEV flottant, fix historique</li>
+        </ul>
+      </div>
+    `;
+    els.verBg.style.display='flex';
+  }
+  function closeVer(){ els.verBg.style.display='none'; }
+  els.btnVer.addEventListener('click', openVer);
+  els.btnCloseVer.addEventListener('click', closeVer);
+  els.verBg.addEventListener('click', (e)=>{ if(e.target===els.verBg) closeVer(); });
+
+  let activeTab = 'used';
+  function statsText(tab){
+    const arr = debug[tab] || [];
+    const head =
+      tab === 'used' ? 'Lignes utilisées (prises en compte)' :
+      tab === 'err'  ? 'Erreurs (boutique détectée mais montant HT introuvable)' :
+                       'Ignorées (hors tableau / non pertinentes)';
+    els.statsHint.textContent = `${head} — ${arr.length}`;
+    return arr.map((x,i)=>`#${i+1} • ${x.reason}\n${x.line}`).join("\n\n");
+  }
+  function renderStats(){
+    els.statsBox.textContent = parsed ? (statsText(activeTab) || '—') : 'Colle un export pour afficher les détails.';
+  }
+  function openStats(){
+    activeTab = 'used';
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===activeTab));
+    renderStats();
+    els.statsBg.style.display='flex';
+  }
+  function closeStats(){ els.statsBg.style.display='none'; }
+  els.btnStats.addEventListener('click', openStats);
+  els.btnCloseStats.addEventListener('click', closeStats);
+  els.statsBg.addEventListener('click', (e)=>{ if(e.target===els.statsBg) closeStats(); });
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=>{
+      activeTab = t.dataset.tab;
+      document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===activeTab));
+      renderStats();
+    });
+  });
+  els.btnCopyStats.addEventListener('click', async ()=>{
+    try{
+      await navigator.clipboard.writeText(els.statsBox.textContent || '');
+      els.btnCopyStats.textContent = 'Copié';
+      setTimeout(()=> els.btnCopyStats.textContent='Copier', 900);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = els.statsBox.textContent || '';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      els.btnCopyStats.textContent = 'Copié';
+      setTimeout(()=> els.btnCopyStats.textContent='Copier', 900);
+    }
+  });
+
+  function doPasteOrClear(){
+    clearParseError();
+    clearDupWarn();
+    const has = (els.raw.value || '').trim().length > 0;
+
+    if(has){
+      els.raw.value = '';
+      parsed = null;
+      view = { level:'dashboard', category:null, tcgLicense:null, globalOnly:false };
+      debug = { used: [], err: [], ignored: [] };
+      els.metaLines.textContent = '0';
+      els.metaUsed.textContent = '0';
+      els.metaErr.textContent = '0';
+      els.warnTwo.style.display = 'none';
+      els.leftSans.textContent = '—'; els.leftSans.dataset.rawValue = '';
+      els.leftTot.textContent  = '—'; els.leftTot.dataset.rawValue = '';
+      render();
+      els.raw.focus();
+      return;
+    }
+
+    navigator.clipboard.readText().then(text=>{
+      if(text && text.trim()){
+        els.raw.value = text;
+        scheduleParse(true);
+        els.raw.focus();
+      } else {
+        els.raw.focus();
+      }
+    }).catch(()=> els.raw.focus());
+  }
+  els.btnPaste.addEventListener('click', doPasteOrClear);
+
+  function scheduleParse(immediate=false){
+    if(parseTimer) clearTimeout(parseTimer);
+    parseTimer = setTimeout(()=>{
+      const txt = (els.raw.value||"").trim();
+      if(!txt){
+        parsed = null;
+        view = { level:'dashboard', category:null, tcgLicense:null, globalOnly:false };
+        debug = { used: [], err: [], ignored: [] };
+        els.metaLines.textContent = '0';
+        els.metaUsed.textContent = '0';
+        els.metaErr.textContent = '0';
+        els.warnTwo.style.display = 'none';
+        els.leftSans.textContent = '—'; els.leftSans.dataset.rawValue = '';
+        els.leftTot.textContent  = '—'; els.leftTot.dataset.rawValue = '';
+        clearDupWarn();
+        render();
+        return;
+      }
+      parseAll();
+    }, immediate ? 0 : 280);
+  }
+  els.raw.addEventListener('input', ()=> scheduleParse(false));
+  els.raw.addEventListener('paste', ()=> scheduleParse(false));
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape'){
+      closeTut(); closeSet(); closeVer(); closeStats(); closeDev(); closeDupModal();
+    }
+  });
+
+  // ── MODIFIÉ : copie au clic sur les totaux ─────────────────────────────────
+  function updateCopyableValue(spanEl, numericValue){
+    if(!Number.isFinite(numericValue)){
+      spanEl.dataset.rawValue = '';
+      return;
+    }
+    // Nombre brut avec virgule décimale (format FR), sans € ni espace
+    spanEl.dataset.rawValue = numericValue.toFixed(2).replace('.', ',');
+  }
+
+  async function copyToClipboard(text){
+    try{
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  }
+
+  function makeCopyable(spanEl){
+    spanEl.addEventListener('click', async ()=>{
+      const raw = spanEl.dataset.rawValue;
+      if(!raw) return;
+      await copyToClipboard(raw);
+      spanEl.classList.remove('copyFlash');
+      // Force reflow pour relancer l'animation si on clique plusieurs fois
+      void spanEl.offsetWidth;
+      spanEl.classList.add('copyFlash');
+      spanEl.addEventListener('animationend', ()=> spanEl.classList.remove('copyFlash'), {once:true});
+    });
+  }
+
+  makeCopyable(els.leftSans);
+  makeCopyable(els.leftTot);
+
+  els.btnVer.textContent = VERSION;
+  els.ver2.textContent = VERSION;
+  prevSettingsSnap = snapshotSettings();
+  syncSettingsUI();
+  setThemeForBoutique('PIGALLE', false);
+  renderMicroHistory();
+  render();
 </script>
 </body>
 </html>
